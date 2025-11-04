@@ -3,6 +3,8 @@ package com.example.musicplayer
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
+import android.os.Environment
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -30,13 +32,7 @@ class MainActivity : ComponentActivity() {
     // Permission request launcher for full storage access (MANAGE_EXTERNAL_STORAGE)
     private val fullStorageAccessLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (android.os.Environment.isExternalStorageManager()) {
-            println("Full storage access granted")
-        } else {
-            println("Full storage access denied")
-        }
-    }
+    ) {}
 
     @SuppressLint("ViewModelConstructorInComposable")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,8 +48,8 @@ class MainActivity : ComponentActivity() {
                 // Check and request storage permissions when the app starts
                 val viewModel = MusicPlayerViewModel()
                 LaunchedEffect(Unit) {
+                    Log.d("TAG", "Launched effect")
                     requestStoragePermissions()
-                    // Load music info from markdown files after permissions are handled
                     viewModel.initializePlayer(this@MainActivity)
                     viewModel.loadMusicInfoFromMarkdown(this@MainActivity)
                 }
@@ -64,10 +60,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestStoragePermissions() {
-        if (android.os.Environment.isExternalStorageManager()) {
-            // Already granted
-            println("Full storage access already granted")
-        } else {
+        if (!Environment.isExternalStorageManager()) {
             // Request full storage access
             val intent = Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
                 data = "package:$packageName".toUri()
@@ -131,7 +124,8 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel = MusicPlayerViewModel()) {
                         }
                         AppDestinations.SETTINGS -> {
                             SettingsScreen(
-                                modifier = Modifier.padding(innerPadding)
+                                modifier = Modifier.padding(innerPadding),
+                                viewModel = viewModel,
                             )
                         }
                         else -> {

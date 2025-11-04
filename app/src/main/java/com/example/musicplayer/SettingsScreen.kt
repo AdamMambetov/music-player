@@ -1,9 +1,11 @@
 package com.example.musicplayer
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.net.Uri
+import android.os.Environment
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -15,41 +17,68 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import androidx.documentfile.provider.DocumentFile
+import androidx.core.content.edit
 
 @Composable
 fun SettingsScreen(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: MusicPlayerViewModel,
 ) {
     val context = LocalContext.current
-    var notePath by remember { mutableStateOf(getStoredNotePath(context)) }
-    var musicPath by remember { mutableStateOf(getStoredMusicPath(context)) }
+    var notePath by remember { mutableStateOf("Not set") }
+    var musicPath by remember { mutableStateOf("Not set") }
     var fullStorageAccessGranted by remember { mutableStateOf(false) }
     
     // Check current permission status when the screen loads
     LaunchedEffect(Unit) {
-        fullStorageAccessGranted =
-            android.os.Environment.isExternalStorageManager()
+        fullStorageAccessGranted = Environment.isExternalStorageManager()
+        val storedNotePath = getStoredNotePath(context)
+        notePath = if (storedNotePath == "Not set") storedNotePath else getPathFromUri(storedNotePath.toUri())
+        val storedMusicPath = getStoredMusicPath(context)
+        musicPath = if (storedMusicPath == "Not set") storedMusicPath else getPathFromUri(storedMusicPath.toUri())
     }
 
     // Launchers for directory picking
     val notePathLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
-        uri?.let {
-            // Store the URI for future use
-            storeNotePath(context, it.toString())
-            notePath = getStoredNotePath(context)
+        Log.d("TAG", uri.toString())
+        val path = getPathFromUri(uri)
+        Log.d("TAG", path)
+        if (path.isNotEmpty()) {
+            // Take URI permission to persist access across app restarts
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri!!,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (e: SecurityException) {
+                Log.e("SettingsScreen", "Failed to take URI permission: ${e.message}")
+            }
+            
+            storeNotePath(context, uri.toString())
+            notePath = path
+            viewModel.loadMusicInfoFromMarkdown(context)
         }
     }
     
     val musicPathLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
-        uri?.let {
-            // Store the URI for future use
-            storeMusicPath(context, it.toString())
-            musicPath = getStoredMusicPath(context)
+        val path = getPathFromUri(uri)
+        if (path.isNotEmpty()) {
+            // Take URI permission to persist access across app restarts
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri!!,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (e: SecurityException) {
+                Log.e("SettingsScreen", "Failed to take URI permission: ${e.message}")
+            }
+            
+            storeMusicPath(context, uri.toString())
+            musicPath = path
         }
     }
 
@@ -57,8 +86,7 @@ fun SettingsScreen(
     val fullStorageAccessLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        fullStorageAccessGranted =
-            android.os.Environment.isExternalStorageManager()
+        fullStorageAccessGranted = Environment.isExternalStorageManager()
     }
 
     Column(
@@ -192,30 +220,51 @@ fun SettingItemWithButton(
     }
 }
 
+@SuppressLint("ViewModelConstructorInComposable")
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 fun SettingsScreenPreview() {
     // Create a mock launcher that doesn't actually launch anything for preview
-    SettingsScreen()
+    SettingsScreen(viewModel = MusicPlayerViewModel())
 }
 
 // Helper functions for storing and retrieving paths
 private fun getStoredNotePath(context: Context): String {
     val sharedPreferences = context.getSharedPreferences("music_player_prefs", Context.MODE_PRIVATE)
-    return sharedPreferences.getString("note_path", "Not set") ?: "Not set"
+    val result =  sharedPreferences.getString("note_path", "Not set") ?: "Not set"
+    return result
 }
 
 private fun storeNotePath(context: Context, path: String) {
     val sharedPreferences = context.getSharedPreferences("music_player_prefs", Context.MODE_PRIVATE)
-    sharedPreferences.edit().putString("note_path", path).apply()
+    sharedPreferences.edit { putString("note_path", path) }
 }
 
 private fun getStoredMusicPath(context: Context): String {
     val sharedPreferences = context.getSharedPreferences("music_player_prefs", Context.MODE_PRIVATE)
-    return sharedPreferences.getString("music_path", "Not set") ?: "Not set"
+    val result = sharedPreferences.getString("music_path", "Not set") ?: "Not set"
+    return result
 }
 
 private fun storeMusicPath(context: Context, path: String) {
     val sharedPreferences = context.getSharedPreferences("music_player_prefs", Context.MODE_PRIVATE)
-    sharedPreferences.edit().putString("music_path", path).apply()
+    sharedPreferences.edit { putString("music_path", path) }
+}
+
+private fun getPathFromUri(uri: Uri?): String {
+    // Environment.getStorageDirectory() is "/storage"
+    // Environment.getExternalStorageDirectory() is "/storage/emulated/0"
+    // it.pathSegments[0] is "tree", [1] is "primary:your/selected/path"
+
+    uri?.let {
+        return if (it.path!!.contains("primary"))
+            it.pathSegments[1]
+                .replaceFirst("primary", Environment.getExternalStorageDirectory().path)
+                .replaceFirst(":", "/")
+        else
+            Environment.getStorageDirectory().path +
+                    "/" +
+                    it.pathSegments[1].replaceFirst(":", "/")
+    }
+    return ""
 }

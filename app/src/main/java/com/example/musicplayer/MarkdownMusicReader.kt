@@ -18,7 +18,7 @@ class MarkdownMusicReader {
         
         try {
             val documentFile = DocumentFile.fromTreeUri(context, directoryUri)
-            if (documentFile?.isDirectory == true) {
+            if (documentFile?.isDirectory == true && documentFile.exists()) {
                 val files = documentFile.listFiles()
                 
                 for (file in files) {
@@ -29,9 +29,13 @@ class MarkdownMusicReader {
                         }
                     }
                 }
+            } else {
+                Log.e("MarkdownMusicReader", "Directory does not exist or is not accessible: $directoryUri")
             }
+        } catch (e: SecurityException) {
+            Log.e("MarkdownMusicReader", "Permission denied accessing directory: $directoryUri", e)
         } catch (e: Exception) {
-            Log.e("MarkdownMusicReader", "Error reading music info from directory", e)
+            Log.e("MarkdownMusicReader", "Error reading music info from directory: $directoryUri", e)
         }
         
         return musicInfoList
@@ -49,6 +53,9 @@ class MarkdownMusicReader {
                 val documentFile = DocumentFile.fromSingleUri(context, fileUri)
                 createMusicInfoFromMarkdown(content, documentFile?.name ?: fileUri.toString())
             } ?: MusicInfo()
+        } catch (e: SecurityException) {
+            Log.e("MarkdownMusicReader", "Permission denied accessing file: $fileUri", e)
+            MusicInfo()
         } catch (e: Exception) {
             Log.e("MarkdownMusicReader", "Error reading music info from file: $fileUri", e)
             MusicInfo()
@@ -64,9 +71,62 @@ class MarkdownMusicReader {
         
         return if (!notePathString.isNullOrEmpty()) {
             val notePathUri = notePathString.toUri()
-            readMusicInfoFromDirectory(context, notePathUri)
+            try {
+                val documentFile = DocumentFile.fromTreeUri(context, notePathUri)
+                if (documentFile?.exists() == true) {
+                    readMusicInfoFromDirectory(context, notePathUri)
+                } else {
+                    Log.e("MarkdownMusicReader", "Directory does not exist or is not accessible: $notePathUri")
+                    emptyList()
+                }
+            } catch (e: SecurityException) {
+                Log.e("MarkdownMusicReader", "Permission denied accessing directory: $notePathUri", e)
+                emptyList()
+            } catch (e: Exception) {
+                Log.e("MarkdownMusicReader", "Error accessing directory: $notePathUri", e)
+                emptyList()
+            }
         } else {
             emptyList()
+        }
+    }
+    
+    /**
+     * Scans the notePath for markdown files with music info and provides incremental updates
+     */
+    suspend fun scanNotePathForMusicInfoIncremental(
+        context: Context,
+        onMusicInfoFound: suspend (MusicInfo) -> Unit
+    ) {
+        val sharedPreferences = context.getSharedPreferences("music_player_prefs", Context.MODE_PRIVATE)
+        val notePathString = sharedPreferences.getString("note_path", null)
+        Log.d("TAG", "Note Path String: $notePathString")
+
+        if (!notePathString.isNullOrEmpty()) {
+            val notePathUri = notePathString.toUri()
+            Log.d("TAG", "Note Path Uri: ${notePathUri.path}")
+            try {
+                val documentFile = DocumentFile.fromTreeUri(context, notePathUri)
+                Log.d("TAG", "Document file: ${documentFile?.name}")
+                if (documentFile?.isDirectory == true && documentFile.exists()) {
+                    val files = documentFile.listFiles()
+                    
+                    for (file in files) {
+                        if (file.isFile && file.name?.endsWith(".md") == true) {
+                            val musicInfo = readMusicInfoFromFile(context, file.uri)
+                            if (musicInfo != MusicInfo()) {
+                                onMusicInfoFound(musicInfo)
+                            }
+                        }
+                    }
+                } else {
+                    Log.e("MarkdownMusicReader", "Directory does not exist or is not accessible: $notePathUri")
+                }
+            } catch (e: SecurityException) {
+                Log.e("MarkdownMusicReader", "Permission denied accessing directory: $notePathUri", e)
+            } catch (e: Exception) {
+                Log.e("MarkdownMusicReader", "Error accessing directory: $notePathUri", e)
+            }
         }
     }
 }
