@@ -28,11 +28,21 @@ import androidx.compose.ui.unit.sp
 fun MusicInfoScreen(
     trackName: String,
     modifier: Modifier = Modifier,
-    musicPlayerViewModel: MusicPlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    musicPlayerViewModel: MusicPlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    onBackClicked: () -> Unit = {},
 ) {
     val isPlaying = remember { musicPlayerViewModel.isPlaying }
     val currentPosition = remember { musicPlayerViewModel.currentPosition }
     val duration = remember { musicPlayerViewModel.duration }
+    
+    // Start playing when the screen is shown (if not already playing)
+    androidx.compose.runtime.LaunchedEffect(trackName) {
+        // The media source should already be set by MainActivity
+        // Just make sure to start playing if not already
+        if (!isPlaying) {
+            musicPlayerViewModel.play()
+        }
+    }
     
     // Extract artist name from track string (assuming format "Album - Artist Name")
     val parts = trackName.split(" - ")
@@ -61,7 +71,7 @@ fun MusicInfoScreen(
                 .padding(bottom = 32.dp),
             horizontalArrangement = Arrangement.Start
         ) {
-            IconButton(onClick = { /* Handle back navigation */ }) {
+            IconButton(onClick = { onBackClicked() }) {
                 Icon(
                     painter = painterResource(R.drawable.back),
                     contentDescription = "Back",

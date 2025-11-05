@@ -1,5 +1,6 @@
 package com.example.musicplayer
 
+import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -7,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -14,11 +16,11 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SearchScreen(
     modifier: Modifier = Modifier,
-    onTrackSelected: (MusicInfo) -> Unit = {},
+    onTrackSelected: (Context, MusicInfo) -> Unit = { _, _ -> },
     musicPlayerViewModel: MusicPlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
     var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
-    
+    val context = LocalContext.current
     val musicInfoList = remember { musicPlayerViewModel.musicInfoList }
     
     // Create track list from music info
@@ -69,11 +71,31 @@ fun SearchScreen(
         // Search results
         LazyColumn {
             items(filteredTracks) { track ->
+                // Find the corresponding MusicInfo for this track
+                val correspondingMusicInfo = musicInfoList.find { musicInfo ->
+                    val trackName = if (musicInfo.album.isNotEmpty() && musicInfo.creator.isNotEmpty()) {
+                        "${musicInfo.album} - ${musicInfo.creator.first()}"
+                    } else if (musicInfo.album.isNotEmpty()) {
+                        musicInfo.album
+                    } else if (musicInfo.creator.isNotEmpty()) {
+                        musicInfo.creator.first()
+                    } else {
+                        val fileName = musicInfo.sourceFile.substringBeforeLast(".")
+                        fileName.ifEmpty { "Unknown Track" }
+                        fileName
+                    }
+                    trackName == track
+                }
+                
                 ListItem(
                     headlineContent = { Text(text = track) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onTrackSelected(MusicInfo()) } // TODO
+                        .clickable {
+                            correspondingMusicInfo?.let {
+                                onTrackSelected(context, it)
+                            }
+                        }
                         .padding(vertical = 8.dp)
                 )
             }
@@ -84,5 +106,5 @@ fun SearchScreen(
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 fun SearchScreenPreview() {
-    SearchScreen(onTrackSelected = { /* Preview action */ })
+    SearchScreen(onTrackSelected = { _, _ -> /* Preview action */ })
 }

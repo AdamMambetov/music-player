@@ -231,7 +231,7 @@ fun SettingsScreenPreview() {
 // Helper functions for storing and retrieving paths
 private fun getStoredNotePath(context: Context): String {
     val sharedPreferences = context.getSharedPreferences("music_player_prefs", Context.MODE_PRIVATE)
-    val result =  sharedPreferences.getString("note_path", "Not set") ?: "Not set"
+    val result = sharedPreferences.getString("note_path", "Not set") ?: "Not set"
     return result
 }
 
@@ -249,22 +249,4 @@ private fun getStoredMusicPath(context: Context): String {
 private fun storeMusicPath(context: Context, path: String) {
     val sharedPreferences = context.getSharedPreferences("music_player_prefs", Context.MODE_PRIVATE)
     sharedPreferences.edit { putString("music_path", path) }
-}
-
-private fun getPathFromUri(uri: Uri?): String {
-    // Environment.getStorageDirectory() is "/storage"
-    // Environment.getExternalStorageDirectory() is "/storage/emulated/0"
-    // it.pathSegments[0] is "tree", [1] is "primary:your/selected/path"
-
-    uri?.let {
-        return if (it.path!!.contains("primary"))
-            it.pathSegments[1]
-                .replaceFirst("primary", Environment.getExternalStorageDirectory().path)
-                .replaceFirst(":", "/")
-        else
-            Environment.getStorageDirectory().path +
-                    "/" +
-                    it.pathSegments[1].replaceFirst(":", "/")
-    }
-    return ""
 }

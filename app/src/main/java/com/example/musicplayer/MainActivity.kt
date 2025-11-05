@@ -1,6 +1,7 @@
 package com.example.musicplayer
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.Environment
@@ -21,7 +22,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
@@ -33,6 +36,32 @@ class MainActivity : ComponentActivity() {
     private val fullStorageAccessLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {}
+    
+    // Launcher for ACTION_OPEN_DOCUMENT to select audio files
+    private val audioFileLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: android.net.Uri? ->
+        uri?.let {
+            // Take persistable URI permission to access the file later
+            contentResolver.takePersistableUriPermission(
+                uri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            // Store the URI in SharedPreferences for later use
+            val sharedPreferences = getSharedPreferences("music_player_prefs", Context.MODE_PRIVATE)
+            sharedPreferences.edit().putString("selected_audio_uri", uri.toString()).apply()
+        }
+    }
+    
+    private fun requestAudioFileAccess() {
+        // Request access to audio files - this would typically be triggered by user action
+        // For now, we'll request access to a single audio file using ACTION_OPEN_DOCUMENT
+        try {
+            audioFileLauncher.launch(arrayOf("audio/*"))
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error launching document picker: ${e.message}")
+        }
+    }
 
     @SuppressLint("ViewModelConstructorInComposable")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,7 +90,6 @@ class MainActivity : ComponentActivity() {
 
     private fun requestStoragePermissions() {
         if (!Environment.isExternalStorageManager()) {
-            // Request full storage access
             val intent = Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
                 data = "package:$packageName".toUri()
             }
@@ -75,6 +103,7 @@ class MainActivity : ComponentActivity() {
 fun MusicPlayerApp(viewModel: MusicPlayerViewModel = MusicPlayerViewModel()) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     var selectedTrack by rememberSaveable { mutableStateOf<MusicInfo?>(null) }
+    val context = LocalContext.current
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -96,11 +125,19 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel = MusicPlayerViewModel()) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
             when {
                 selectedTrack != null -> {
+                    // When showing music info screen, set the media source if it's different
+                    LaunchedEffect(selectedTrack) {
+                        selectedTrack?.let { track ->
+                            viewModel.setMediaSourceWithService(context, track)
+                        }
+                    }
+                    
                     // Show music info screen for selected track
                     MusicInfoScreen(
                         trackName = selectedTrack!!.aliases.getOrElse(0) { "Empty name" },
                         modifier = Modifier.padding(innerPadding),
-                        musicPlayerViewModel = viewModel
+                        musicPlayerViewModel = viewModel,
+                        onBackClicked = { selectedTrack = null }
                     )
                 }
                 else -> {
@@ -109,15 +146,19 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel = MusicPlayerViewModel()) {
                             MusicPlayerScreen(
                                 modifier = Modifier.padding(innerPadding),
                                 musicPlayerViewModel = viewModel,
-                                onTrackSelected = { trackName ->
+                                onTrackSelected = { context, trackName ->
                                     selectedTrack = trackName
+                                    viewModel.setMediaSourceWithService(context, trackName)
                                 }
                             )
                         }
                         AppDestinations.SEARCH -> {
                             SearchScreen(
                                 modifier = Modifier.padding(innerPadding),
-                                onTrackSelected = { selectedTrack = it }
+                                onTrackSelected = { context, musicInfo ->
+                                    selectedTrack = musicInfo
+                                    viewModel.setMediaSourceWithService(context, musicInfo)
+                                }
                             )
                         }
                         AppDestinations.SETTINGS -> {
@@ -144,27 +185,27 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel = MusicPlayerViewModel()) {
 }
 
 enum class AppDestinations(
-    val label: String,
-    val icon: Int,
+   val label: String,
+   val icon: Int,
 ) {
-    HOME("Home", R.drawable.home),
-    SEARCH("Search", R.drawable.search),
-    FAVORITES("Favorites", R.drawable.favorite),
-    SETTINGS("Settings", R.drawable.settings),
+   HOME("Home", R.drawable.home),
+   SEARCH("Search", R.drawable.search),
+   FAVORITES("Favorites", R.drawable.favorite),
+   SETTINGS("Settings", R.drawable.settings),
 }
 
 @Composable
 fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
+   Text(
+       text = "Hello $name!",
+       modifier = modifier
+   )
 }
 
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
-    MusicPlayerTheme {
-        Greeting("Android")
-    }
+   MusicPlayerTheme {
+       Greeting("Android")
+   }
 }

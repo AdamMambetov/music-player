@@ -1,5 +1,6 @@
 package com.example.musicplayer
 
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,11 +13,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -25,12 +28,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun MusicPlayerScreen(
     modifier: Modifier = Modifier,
     musicPlayerViewModel: MusicPlayerViewModel = viewModel(),
-    onTrackSelected: (MusicInfo) -> Unit = {}
+    onTrackSelected: (Context, MusicInfo) -> Unit = { _, _ -> }
 ) {
     val isPlaying = remember { musicPlayerViewModel.isPlaying }
     val currentPosition = remember { musicPlayerViewModel.currentPosition }
     val duration = remember { musicPlayerViewModel.duration }
     val musicInfoList = remember { musicPlayerViewModel.musicInfoList }
+    val context = LocalContext.current
 
     Column(
         modifier = modifier
@@ -40,7 +44,7 @@ fun MusicPlayerScreen(
         Text(
             text = "My Music",
             modifier = Modifier.padding(bottom = 16.dp),
-            style = androidx.compose.material3.MaterialTheme.typography.headlineMedium
+            style = MaterialTheme.typography.headlineMedium
         )
 
         LazyColumn {
@@ -62,7 +66,9 @@ fun MusicPlayerScreen(
                     headlineContent = { Text(text = trackName) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onTrackSelected(musicInfo) }
+                        .clickable {
+                            onTrackSelected(context, musicInfo)
+                        }
                         .padding(vertical = 8.dp)
                 )
             }

@@ -11,7 +11,8 @@ data class MusicInfo(
     val creator: List<String> = emptyList(),
     val album: String = "",
     val year: Int = 0,
-    val sourceFile: String = "",
+    val sourceFile: String = "", // Original filename
+    val sourceUri: String = "", // Content URI with permissions
     val trackNumber: Int = 0,
 ) {
     companion object {
@@ -117,6 +118,7 @@ fun createMusicInfoFromMarkdown(markdownContent: String): MusicInfo {
         album = yamlData[MusicInfo.ALBUM_KEY].orEmpty(),
         year = yamlData[MusicInfo.YEAR_KEY]?.toIntOrNull() ?: 0,
         sourceFile = yamlData[MusicInfo.SOURCE_FILE_KEY].orEmpty(),
+        sourceUri = "", // Will be set when the actual file URI is available
         trackNumber = yamlData[MusicInfo.TRACK_NUMBER_KEY]?.toIntOrNull() ?: 0,
         created = try {
             val createdStr = yamlData[MusicInfo.CREATED_KEY]
