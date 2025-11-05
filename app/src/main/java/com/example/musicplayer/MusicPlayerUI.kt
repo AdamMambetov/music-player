@@ -25,7 +25,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun MusicPlayerScreen(
     modifier: Modifier = Modifier,
     musicPlayerViewModel: MusicPlayerViewModel = viewModel(),
-    onTrackSelected: (String) -> Unit = {}
+    onTrackSelected: (MusicInfo) -> Unit = {}
 ) {
     val isPlaying = remember { musicPlayerViewModel.isPlaying }
     val currentPosition = remember { musicPlayerViewModel.currentPosition }
@@ -62,7 +62,7 @@ fun MusicPlayerScreen(
                     headlineContent = { Text(text = trackName) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onTrackSelected(trackName) }
+                        .clickable { onTrackSelected(musicInfo) }
                         .padding(vertical = 8.dp)
                 )
             }

@@ -110,13 +110,13 @@ fun parseYamlFrontMatter(markdownContent: String): Map<String, String> {
 /**
  * Creates a MusicInfo object from markdown content with YAML front matter
  */
-fun createMusicInfoFromMarkdown(markdownContent: String, sourceFilePath: String = ""): MusicInfo {
+fun createMusicInfoFromMarkdown(markdownContent: String): MusicInfo {
     val yamlData = parseYamlFrontMatter(markdownContent)
 
     return MusicInfo(
-        album = yamlData[MusicInfo.ALBUM_KEY] ?: "",
+        album = yamlData[MusicInfo.ALBUM_KEY].orEmpty(),
         year = yamlData[MusicInfo.YEAR_KEY]?.toIntOrNull() ?: 0,
-        sourceFile = if (yamlData[MusicInfo.SOURCE_FILE_KEY].isNullOrEmpty()) sourceFilePath else yamlData[MusicInfo.SOURCE_FILE_KEY]!!,
+        sourceFile = yamlData[MusicInfo.SOURCE_FILE_KEY].orEmpty(),
         trackNumber = yamlData[MusicInfo.TRACK_NUMBER_KEY]?.toIntOrNull() ?: 0,
         created = try {
             val createdStr = yamlData[MusicInfo.CREATED_KEY]
@@ -136,7 +136,7 @@ fun createMusicInfoFromMarkdown(markdownContent: String, sourceFilePath: String 
         } else {
             yamlData[MusicInfo.ALIASES_KEY]!!.split("|||") // Split back the joined array values
         },
-        cover = yamlData[MusicInfo.COVER_KEY] ?: "",
+        cover = yamlData[MusicInfo.COVER_KEY].orEmpty(),
         creator = if (yamlData[MusicInfo.CREATOR_KEY].isNullOrEmpty()) {
             emptyList()
         } else {

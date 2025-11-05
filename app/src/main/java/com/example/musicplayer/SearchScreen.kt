@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SearchScreen(
     modifier: Modifier = Modifier,
-    onTrackSelected: (String) -> Unit = {},
+    onTrackSelected: (MusicInfo) -> Unit = {},
     musicPlayerViewModel: MusicPlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
     var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
@@ -73,7 +73,7 @@ fun SearchScreen(
                     headlineContent = { Text(text = track) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onTrackSelected(track) }
+                        .clickable { onTrackSelected(MusicInfo()) } // TODO
                         .padding(vertical = 8.dp)
                 )
             }

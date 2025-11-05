@@ -50,8 +50,7 @@ class MarkdownMusicReader {
                 val content = BufferedReader(InputStreamReader(inputStream)).use { reader ->
                     reader.readText()
                 }
-                val documentFile = DocumentFile.fromSingleUri(context, fileUri)
-                createMusicInfoFromMarkdown(content, documentFile?.name ?: fileUri.toString())
+                createMusicInfoFromMarkdown(content)
             } ?: MusicInfo()
         } catch (e: SecurityException) {
             Log.e("MarkdownMusicReader", "Permission denied accessing file: $fileUri", e)

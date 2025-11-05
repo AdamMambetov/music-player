@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MusicPlayerApp(viewModel: MusicPlayerViewModel = MusicPlayerViewModel()) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
-    var selectedTrack by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedTrack by rememberSaveable { mutableStateOf<MusicInfo?>(null) }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -98,7 +98,7 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel = MusicPlayerViewModel()) {
                 selectedTrack != null -> {
                     // Show music info screen for selected track
                     MusicInfoScreen(
-                        trackName = selectedTrack!!,
+                        trackName = selectedTrack!!.aliases.getOrElse(0) { "Empty name" },
                         modifier = Modifier.padding(innerPadding),
                         musicPlayerViewModel = viewModel
                     )
@@ -117,9 +117,7 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel = MusicPlayerViewModel()) {
                         AppDestinations.SEARCH -> {
                             SearchScreen(
                                 modifier = Modifier.padding(innerPadding),
-                                onTrackSelected = { trackName ->
-                                    selectedTrack = trackName
-                                }
+                                onTrackSelected = { selectedTrack = it }
                             )
                         }
                         AppDestinations.SETTINGS -> {
