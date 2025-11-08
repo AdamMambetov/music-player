@@ -3,9 +3,12 @@ package com.example.musicplayer
 import android.content.ComponentName
 import android.content.ContentUris
 import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -19,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
+import androidx.core.content.edit
 
 class MusicPlayerViewModel : ViewModel() {
     var isPlaying by mutableStateOf(false)
@@ -29,9 +33,32 @@ class MusicPlayerViewModel : ViewModel() {
     
     // List of music info from markdown files
     var musicInfoList by mutableStateOf<List<MusicInfo>>(emptyList())
+    // Cached music info list to avoid reloading
+    private var cachedMusicInfoList: List<MusicInfo>? = null
 
     private var _mediaController: MediaController? = null
 
+    private fun getSharedPreferences(context: Context): SharedPreferences {
+        return context.getSharedPreferences("music_player_cache", Context.MODE_PRIVATE)
+    }
+    
+    private fun saveMusicInfoListToCache(context: Context, musicInfoList: List<MusicInfo>) {
+        val gson = Gson()
+        val json = gson.toJson(musicInfoList)
+        getSharedPreferences(context).edit { putString("cached_music_info_list", json) }
+    }
+    
+    private fun loadMusicInfoListFromCache(context: Context): List<MusicInfo>? {
+        val gson = Gson()
+        val json = getSharedPreferences(context).getString("cached_music_info_list", null)
+        return if (json != null) {
+            val listType = object : TypeToken<List<MusicInfo>>() {}.type
+            gson.fromJson(json, listType)
+        } else {
+            null
+        }
+    }
+    
     fun initializePlayer(context: Context) {
         viewModelScope.launch {
             val sessionToken = SessionToken(context, ComponentName(context, MusicPlayerService::class.java))
@@ -72,35 +99,58 @@ class MusicPlayerViewModel : ViewModel() {
     fun loadMusicInfoFromMarkdown(context: Context) {
         Log.d("TAG", "loadMusicInfoFromMarkdown")
         viewModelScope.launch {
-            val markdownMusicReader = MarkdownMusicReader()
-            // Clear the list first
-            musicInfoList = markdownMusicReader.scanNotePathForMusicInfo(context)
-            return@launch
-            
-            // Load music info incrementally with batching to prevent UI freezing
-            val batchList = mutableListOf<MusicInfo>()
-            val batchSize = 5 // Update UI every 5 items
-            
-            // Process files on a background thread
-            withContext(kotlinx.coroutines.Dispatchers.Default) {
-                markdownMusicReader.scanNotePathForMusicInfoIncremental(context) { musicInfo ->
-                    batchList.add(musicInfo)
-                    // Update the UI in batches to prevent freezing
-                    if (batchList.size >= batchSize) {
-                        // Switch to main thread to update UI
+            // Check if we have cached data available in memory first
+            if (cachedMusicInfoList != null) {
+                Log.d("TAG", "Using cached music info list from memory")
+                musicInfoList = cachedMusicInfoList!!
+            } else {
+                // Check if we have cached data in SharedPreferences
+                val cachedList = loadMusicInfoListFromCache(context)
+                if (cachedList != null) {
+                    Log.d("TAG", "Using cached music info list from storage")
+                    musicInfoList = cachedList
+                    cachedMusicInfoList = cachedList
+                } else {
+                    val markdownMusicReader = MarkdownMusicReader()
+                    // Clear the list first
+                    musicInfoList = markdownMusicReader.scanNotePathForMusicInfo(context)
+                    
+                    // Cache the loaded list in memory and in SharedPreferences
+                    cachedMusicInfoList = musicInfoList
+                    saveMusicInfoListToCache(context, musicInfoList)
+                    
+                    return@launch
+                    
+                    // Load music info incrementally with batching to prevent UI freezing
+                    val batchList = mutableListOf<MusicInfo>()
+                    val batchSize = 5 // Update UI every 5 items
+                    
+                    // Process files on a background thread
+                    withContext(kotlinx.coroutines.Dispatchers.Default) {
+                        markdownMusicReader.scanNotePathForMusicInfoIncremental(context) { musicInfo ->
+                            batchList.add(musicInfo)
+                            // Update the UI in batches to prevent freezing
+                            if (batchList.size >= batchSize) {
+                                // Switch to main thread to update UI
+                                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    musicInfoList = musicInfoList + batchList.toList()
+                                }
+                                batchList.clear()
+                            }
+                            Log.d("TAG", "add music item to musicInfoList")
+                        }
+                    }
+                    
+                    // Add any remaining items that didn't make a full batch
+                    if (batchList.isNotEmpty()) {
                         withContext(kotlinx.coroutines.Dispatchers.Main) {
                             musicInfoList = musicInfoList + batchList.toList()
                         }
-                        batchList.clear()
                     }
-                    Log.d("TAG", "add music item to musicInfoList")
-                }
-            }
-            
-            // Add any remaining items that didn't make a full batch
-            if (batchList.isNotEmpty()) {
-                withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    musicInfoList = musicInfoList + batchList.toList()
+                    
+                    // Cache the loaded list in memory and in SharedPreferences
+                    cachedMusicInfoList = musicInfoList
+                    saveMusicInfoListToCache(context, musicInfoList)
                 }
             }
         }
@@ -115,6 +165,11 @@ class MusicPlayerViewModel : ViewModel() {
         Log.d("TAG", "Music Path String: $musicPathString")
 
         if (musicPathString?.toUri() == null)
+            return
+        if (cachedMusicInfoList == null)
+            return
+
+        if (cachedMusicInfoList!!.find { it.sourceUri.isEmpty() } == null)
             return
 
         val uri = musicPathString.toUri()
@@ -156,8 +211,9 @@ class MusicPlayerViewModel : ViewModel() {
                     id,
                 )
                 Log.d("TAG", "Content Uri: $contentUri")
-                musicInfoList.find { musicInfo -> musicInfo.sourceFile == fileName }?.sourceUri = contentUri.toString()
+                cachedMusicInfoList!!.find { musicInfo -> musicInfo.sourceFile == fileName }?.sourceUri = contentUri.toString()
             }
+            saveMusicInfoListToCache(context, cachedMusicInfoList!!)
         }
     }
 

@@ -15,7 +15,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,9 +30,9 @@ fun MusicInfoScreen(
     musicPlayerViewModel: MusicPlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
     onBackClicked: () -> Unit = {},
 ) {
-    val isPlaying = remember { musicPlayerViewModel.isPlaying }
-    val currentPosition = remember { musicPlayerViewModel.currentPosition }
-    val duration = remember { musicPlayerViewModel.duration }
+    val isPlaying = musicPlayerViewModel.isPlaying
+    val currentPosition = musicPlayerViewModel.currentPosition
+    val duration = musicPlayerViewModel.duration
     
     // Start playing when the screen is shown (if not already playing)
     androidx.compose.runtime.LaunchedEffect(trackName) {

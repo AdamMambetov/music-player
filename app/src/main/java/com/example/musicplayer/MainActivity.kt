@@ -1,7 +1,6 @@
 package com.example.musicplayer
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.Environment
@@ -20,9 +19,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -36,32 +35,6 @@ class MainActivity : ComponentActivity() {
     private val fullStorageAccessLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {}
-    
-    // Launcher for ACTION_OPEN_DOCUMENT to select audio files
-    private val audioFileLauncher = registerForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri: android.net.Uri? ->
-        uri?.let {
-            // Take persistable URI permission to access the file later
-            contentResolver.takePersistableUriPermission(
-                uri,
-                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-            // Store the URI in SharedPreferences for later use
-            val sharedPreferences = getSharedPreferences("music_player_prefs", Context.MODE_PRIVATE)
-            sharedPreferences.edit().putString("selected_audio_uri", uri.toString()).apply()
-        }
-    }
-    
-    private fun requestAudioFileAccess() {
-        // Request access to audio files - this would typically be triggered by user action
-        // For now, we'll request access to a single audio file using ACTION_OPEN_DOCUMENT
-        try {
-            audioFileLauncher.launch(arrayOf("audio/*"))
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error launching document picker: ${e.message}")
-        }
-    }
 
     @SuppressLint("ViewModelConstructorInComposable")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -103,7 +76,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MusicPlayerApp(viewModel: MusicPlayerViewModel = MusicPlayerViewModel()) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
-    var selectedTrack by rememberSaveable { mutableStateOf<MusicInfo?>(null) }
+    var selectedTrack by remember { mutableStateOf<MusicInfo?>(null) }
     val context = LocalContext.current
 
     NavigationSuiteScaffold(
