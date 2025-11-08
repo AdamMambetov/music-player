@@ -91,7 +91,7 @@ fun MusicPlayerScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.Center
+                horizontalArrangement = Arrangement.SpaceAround
             ) {
                 IconButton(onClick = { musicPlayerViewModel.previousTrack() }) {
                     Icon(
@@ -101,8 +101,6 @@ fun MusicPlayerScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
-
                 IconButton(onClick = { if (isPlaying) musicPlayerViewModel.pause() else musicPlayerViewModel.play() }) {
                     Icon(
                         painter = painterResource(if (isPlaying) R.drawable.pause else R.drawable.play_arrow),
@@ -110,8 +108,6 @@ fun MusicPlayerScreen(
                         modifier = Modifier.size(64.dp)
                     )
                 }
-
-                Spacer(modifier = Modifier.weight(1f))
 
                 IconButton(onClick = { musicPlayerViewModel.nextTrack() }) {
                     Icon(

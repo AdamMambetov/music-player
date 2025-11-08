@@ -7,9 +7,11 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.core.content.edit
@@ -116,7 +119,7 @@ fun SettingsScreen(
             buttonLabel = if (fullStorageAccessGranted) "Granted" else "Request",
             onButtonClick = {
                 // For Android 11+, request full storage access
-                val intent = Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
                     data = "package:${context.packageName}".toUri()
                 }
                 fullStorageAccessLauncher.launch(intent)
@@ -140,6 +143,22 @@ fun SettingsScreen(
             currentValue = musicPath,
             onButtonClick = { musicPathLauncher.launch(null) }
         )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = {
+                viewModel.musicInfoList = listOf()
+                viewModel.cachedMusicInfoList = null
+                viewModel.saveMusicInfoListToCache(context, listOf())
+                viewModel.loadMusicInfoFromMarkdown(context)
+                viewModel.loadMusicInfoFromSource(context)
+            },
+
+        ) {
+            Text("Rescan")
+        }
     }
 }
 
@@ -230,7 +249,7 @@ fun SettingItemWithButton(
 }
 
 @SuppressLint("ViewModelConstructorInComposable")
-@androidx.compose.ui.tooling.preview.Preview
+@Preview
 @Composable
 fun SettingsScreenPreview() {
     // Create a mock launcher that doesn't actually launch anything for preview

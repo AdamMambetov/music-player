@@ -7,6 +7,7 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
+import androidx.annotation.OptIn
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import androidx.compose.runtime.getValue
@@ -23,6 +24,7 @@ import kotlinx.coroutines.withContext
 import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.core.content.edit
+import androidx.media3.common.util.UnstableApi
 
 class MusicPlayerViewModel : ViewModel() {
     var isPlaying by mutableStateOf(false)
@@ -34,7 +36,7 @@ class MusicPlayerViewModel : ViewModel() {
     // List of music info from markdown files
     var musicInfoList by mutableStateOf<List<MusicInfo>>(emptyList())
     // Cached music info list to avoid reloading
-    private var cachedMusicInfoList: List<MusicInfo>? = null
+    var cachedMusicInfoList: List<MusicInfo>? = null
 
     private var _mediaController: MediaController? = null
 
@@ -42,13 +44,13 @@ class MusicPlayerViewModel : ViewModel() {
         return context.getSharedPreferences("music_player_cache", Context.MODE_PRIVATE)
     }
     
-    private fun saveMusicInfoListToCache(context: Context, musicInfoList: List<MusicInfo>) {
+    fun saveMusicInfoListToCache(context: Context, musicInfoList: List<MusicInfo>) {
         val gson = Gson()
         val json = gson.toJson(musicInfoList)
         getSharedPreferences(context).edit { putString("cached_music_info_list", json) }
     }
     
-    private fun loadMusicInfoListFromCache(context: Context): List<MusicInfo>? {
+    fun loadMusicInfoListFromCache(context: Context): List<MusicInfo>? {
         val gson = Gson()
         val json = getSharedPreferences(context).getString("cached_music_info_list", null)
         return if (json != null) {
@@ -58,7 +60,8 @@ class MusicPlayerViewModel : ViewModel() {
             null
         }
     }
-    
+
+    @OptIn(UnstableApi::class)
     fun initializePlayer(context: Context) {
         viewModelScope.launch {
             val sessionToken = SessionToken(context, ComponentName(context, MusicPlayerService::class.java))
@@ -66,7 +69,7 @@ class MusicPlayerViewModel : ViewModel() {
             
             controllerFuture.addListener({
                 _mediaController = controllerFuture.get()
-                
+
                 // Add listener to update position and duration
                 _mediaController?.addListener(object : Player.Listener {
                     override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -107,51 +110,53 @@ class MusicPlayerViewModel : ViewModel() {
                 // Check if we have cached data in SharedPreferences
                 val cachedList = loadMusicInfoListFromCache(context)
                 if (cachedList != null) {
-                    Log.d("TAG", "Using cached music info list from storage")
-                    musicInfoList = cachedList
-                    cachedMusicInfoList = cachedList
-                } else {
-                    val markdownMusicReader = MarkdownMusicReader()
-                    // Clear the list first
-                    musicInfoList = markdownMusicReader.scanNotePathForMusicInfo(context)
-                    
-                    // Cache the loaded list in memory and in SharedPreferences
-                    cachedMusicInfoList = musicInfoList
-                    saveMusicInfoListToCache(context, musicInfoList)
-                    
-                    return@launch
-                    
-                    // Load music info incrementally with batching to prevent UI freezing
-                    val batchList = mutableListOf<MusicInfo>()
-                    val batchSize = 5 // Update UI every 5 items
-                    
-                    // Process files on a background thread
-                    withContext(kotlinx.coroutines.Dispatchers.Default) {
-                        markdownMusicReader.scanNotePathForMusicInfoIncremental(context) { musicInfo ->
-                            batchList.add(musicInfo)
-                            // Update the UI in batches to prevent freezing
-                            if (batchList.size >= batchSize) {
-                                // Switch to main thread to update UI
-                                withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                    musicInfoList = musicInfoList + batchList.toList()
-                                }
-                                batchList.clear()
-                            }
-                            Log.d("TAG", "add music item to musicInfoList")
-                        }
+                    if (cachedList.isNotEmpty()) {
+                        Log.d("TAG", "Using cached music info list from storage")
+                        musicInfoList = cachedList
+                        cachedMusicInfoList = cachedList
+                        return@launch
                     }
-                    
-                    // Add any remaining items that didn't make a full batch
-                    if (batchList.isNotEmpty()) {
-                        withContext(kotlinx.coroutines.Dispatchers.Main) {
-                            musicInfoList = musicInfoList + batchList.toList()
-                        }
-                    }
-                    
-                    // Cache the loaded list in memory and in SharedPreferences
-                    cachedMusicInfoList = musicInfoList
-                    saveMusicInfoListToCache(context, musicInfoList)
                 }
+                val markdownMusicReader = MarkdownMusicReader()
+                // Clear the list first
+                musicInfoList = markdownMusicReader.scanNotePathForMusicInfo(context)
+
+                // Cache the loaded list in memory and in SharedPreferences
+                cachedMusicInfoList = musicInfoList
+                saveMusicInfoListToCache(context, musicInfoList)
+
+                return@launch
+
+                // Load music info incrementally with batching to prevent UI freezing
+                val batchList = mutableListOf<MusicInfo>()
+                val batchSize = 5 // Update UI every 5 items
+
+                // Process files on a background thread
+                withContext(kotlinx.coroutines.Dispatchers.Default) {
+                    markdownMusicReader.scanNotePathForMusicInfoIncremental(context) { musicInfo ->
+                        batchList.add(musicInfo)
+                        // Update the UI in batches to prevent freezing
+                        if (batchList.size >= batchSize) {
+                            // Switch to main thread to update UI
+                            withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                musicInfoList = musicInfoList + batchList.toList()
+                            }
+                            batchList.clear()
+                        }
+                        Log.d("TAG", "add music item to musicInfoList")
+                    }
+                }
+
+                // Add any remaining items that didn't make a full batch
+                if (batchList.isNotEmpty()) {
+                    withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        musicInfoList = musicInfoList + batchList.toList()
+                    }
+                }
+
+                // Cache the loaded list in memory and in SharedPreferences
+                cachedMusicInfoList = musicInfoList
+                saveMusicInfoListToCache(context, musicInfoList)
             }
         }
     }
@@ -168,7 +173,8 @@ class MusicPlayerViewModel : ViewModel() {
             return
         if (cachedMusicInfoList == null)
             return
-
+        if (cachedMusicInfoList!!.isEmpty())
+            return
         if (cachedMusicInfoList!!.find { it.sourceUri.isEmpty() } == null)
             return
 
@@ -228,10 +234,9 @@ class MusicPlayerViewModel : ViewModel() {
     fun setMediaSourceWithService(context: Context, musicInfo: MusicInfo) {
         if (musicInfo.sourceUri.isNotEmpty()) {
             Log.d("TAG", "Source Uri: ${musicInfo.sourceUri}")
-            val serviceIntent = android.content.Intent(context, MusicPlayerService::class.java)
-            // Pass the sourceUri which should be a content URI with proper permissions
-            serviceIntent.putExtra("media_source", musicInfo.sourceUri)
-            context.startService(serviceIntent)
+            // Use the MediaController to set the media source instead of starting the service again
+            // This prevents multiple notifications from being created
+            setMediaSource(musicInfo)
         }
     }
 
