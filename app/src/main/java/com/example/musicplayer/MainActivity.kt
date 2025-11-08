@@ -81,6 +81,7 @@ class MainActivity : ComponentActivity() {
                     requestStoragePermissions()
                     viewModel.initializePlayer(this@MainActivity)
                     viewModel.loadMusicInfoFromMarkdown(this@MainActivity)
+                    viewModel.loadMusicInfoFromSource(this@MainActivity)
                 }
                 
                 MusicPlayerApp(viewModel = viewModel)
@@ -146,18 +147,18 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel = MusicPlayerViewModel()) {
                             MusicPlayerScreen(
                                 modifier = Modifier.padding(innerPadding),
                                 musicPlayerViewModel = viewModel,
-                                onTrackSelected = { context, trackName ->
-                                    selectedTrack = trackName
-                                    viewModel.setMediaSourceWithService(context, trackName)
+                                onTrackSelected = { context, track ->
+                                    selectedTrack = track
+                                    viewModel.setMediaSourceWithService(context, track)
                                 }
                             )
                         }
                         AppDestinations.SEARCH -> {
                             SearchScreen(
                                 modifier = Modifier.padding(innerPadding),
-                                onTrackSelected = { context, musicInfo ->
-                                    selectedTrack = musicInfo
-                                    viewModel.setMediaSourceWithService(context, musicInfo)
+                                onTrackSelected = { context, track ->
+                                    selectedTrack = track
+                                    viewModel.setMediaSourceWithService(context, track)
                                 }
                             )
                         }

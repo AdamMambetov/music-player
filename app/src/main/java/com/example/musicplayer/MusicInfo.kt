@@ -12,7 +12,7 @@ data class MusicInfo(
     val album: String = "",
     val year: Int = 0,
     val sourceFile: String = "", // Original filename
-    val sourceUri: String = "", // Content URI with permissions
+    var sourceUri: String = "", // Content URI with permissions
     val trackNumber: Int = 0,
 ) {
     companion object {

@@ -1,7 +1,10 @@
 package com.example.musicplayer
 
 import android.content.ComponentName
+import android.content.ContentUris
 import android.content.Context
+import android.net.Uri
+import android.provider.MediaStore
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -14,6 +17,8 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.core.net.toUri
+import androidx.media3.common.MediaItem
 
 class MusicPlayerViewModel : ViewModel() {
     var isPlaying by mutableStateOf(false)
@@ -57,9 +62,7 @@ class MusicPlayerViewModel : ViewModel() {
                         currentPosition = _mediaController?.currentPosition ?: 0L
                     }
                 })
-            }, { exception ->
-                Log.e("TAG", exception.toString())
-            })
+            }, { it.run() })
         }
     }
     
@@ -71,7 +74,8 @@ class MusicPlayerViewModel : ViewModel() {
         viewModelScope.launch {
             val markdownMusicReader = MarkdownMusicReader()
             // Clear the list first
-            musicInfoList = emptyList()
+            musicInfoList = markdownMusicReader.scanNotePathForMusicInfo(context)
+            return@launch
             
             // Load music info incrementally with batching to prevent UI freezing
             val batchList = mutableListOf<MusicInfo>()
@@ -102,17 +106,72 @@ class MusicPlayerViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Load music info from source files in the musicPath
+     */
+    fun loadMusicInfoFromSource(context: Context) {
+        val sharedPreferences = context.getSharedPreferences("music_player_prefs", Context.MODE_PRIVATE)
+        val musicPathString = sharedPreferences.getString("music_path", null)
+        Log.d("TAG", "Music Path String: $musicPathString")
+
+        if (musicPathString?.toUri() == null)
+            return
+
+        val uri = musicPathString.toUri()
+        val queryUri = MediaStore.Audio.Media.getContentUri(
+            MediaStore.VOLUME_EXTERNAL
+        )
+        Log.d("TAG", "Query Uri Path: $queryUri")
+
+        val projection = arrayOf(
+            MediaStore.Audio.Media._ID,
+            MediaStore.Audio.Media.RELATIVE_PATH,
+            MediaStore.Audio.Media.DISPLAY_NAME,
+        )
+
+        val selectionPath = uri.lastPathSegment!!.substringAfter(":") + "/"
+        Log.d("TAG", "Selection Path: $selectionPath")
+        val selection = "${MediaStore.Audio.Media.RELATIVE_PATH} = ?"
+        val selectionArgs = arrayOf(
+            selectionPath,
+        )
+
+        context.contentResolver.query(
+            queryUri,
+            projection,
+            selection,
+            selectionArgs,
+            null,
+        )?.use { cursor ->
+            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+            val pathColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.RELATIVE_PATH)
+            val displayNameColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+            while (cursor.moveToNext()) {
+                val id = cursor.getLong(idColumn)
+                val path = cursor.getString(pathColumn)
+                val fileName = cursor.getString(displayNameColumn)
+                Log.d("TAG", "File: $path$fileName")
+                val contentUri: Uri = ContentUris.withAppendedId(
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                    id,
+                )
+                Log.d("TAG", "Content Uri: $contentUri")
+                musicInfoList.find { musicInfo -> musicInfo.sourceFile == fileName }?.sourceUri = contentUri.toString()
+            }
+        }
+    }
+
+
     fun setMediaSource(musicInfo: MusicInfo) {
         // Update the media source in the service
         if (musicInfo.sourceUri.isNotEmpty()) {
-            // We need to use the MediaController to interact with the service
-            // The service will handle setting the media source
-            // Note: Context should be passed from the UI layer
+            _mediaController?.setMediaItem(MediaItem.fromUri(musicInfo.sourceUri))
         }
     }
     
     fun setMediaSourceWithService(context: Context, musicInfo: MusicInfo) {
         if (musicInfo.sourceUri.isNotEmpty()) {
+            Log.d("TAG", "Source Uri: ${musicInfo.sourceUri}")
             val serviceIntent = android.content.Intent(context, MusicPlayerService::class.java)
             // Pass the sourceUri which should be a content URI with proper permissions
             serviceIntent.putExtra("media_source", musicInfo.sourceUri)

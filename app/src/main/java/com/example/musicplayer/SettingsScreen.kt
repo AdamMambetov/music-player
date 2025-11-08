@@ -1,10 +1,12 @@
 package com.example.musicplayer
 
 import android.annotation.SuppressLint
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,6 +20,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.core.content.edit
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
 
 @Composable
 fun SettingsScreen(
@@ -48,9 +53,11 @@ fun SettingsScreen(
         if (path.isNotEmpty()) {
             // Take URI permission to persist access across app restarts
             try {
+                val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 context.contentResolver.takePersistableUriPermission(
                     uri!!,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    takeFlags,
                 )
             } catch (e: SecurityException) {
                 Log.e("SettingsScreen", "Failed to take URI permission: ${e.message}")
@@ -71,14 +78,16 @@ fun SettingsScreen(
             try {
                 context.contentResolver.takePersistableUriPermission(
                     uri!!,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
                 )
+                Log.d("TAG", "Music Path: $uri")
             } catch (e: SecurityException) {
                 Log.e("SettingsScreen", "Failed to take URI permission: ${e.message}")
             }
             
             storeMusicPath(context, uri.toString())
             musicPath = path
+            viewModel.loadMusicInfoFromSource(context)
         }
     }
 
