@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    kotlin("plugin.serialization") version "1.4.20"
+    kotlin("kapt")
 }
 
 android {
@@ -56,8 +58,17 @@ dependencies {
     implementation(libs.androidx.documentfile)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
-    implementation("com.google.code.gson:gson:2.10.1")
+    implementation(libs.lazycolumnscrollbar)
+    implementation("org.yaml:snakeyaml:2.5")
     testImplementation(libs.junit)
+
+
+    // AppSearch https://developer.android.com/develop/ui/views/search/appsearch#kts
+    val appsearch_version = "1.1.0"
+    implementation("androidx.appsearch:appsearch:$appsearch_version")
+    kapt("androidx.appsearch:appsearch-compiler:$appsearch_version")
+    implementation("androidx.appsearch:appsearch-local-storage:$appsearch_version")
+
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

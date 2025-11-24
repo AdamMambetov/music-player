@@ -1,17 +1,12 @@
 package com.example.musicplayer
 
 import android.annotation.SuppressLint
-import android.content.ContentUris
-import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Environment
-import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,10 +17,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import androidx.core.content.edit
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
+
+private const val EMPTY_PATH = "Not set"
 
 @Composable
 fun SettingsScreen(
@@ -33,26 +26,26 @@ fun SettingsScreen(
     viewModel: MusicPlayerViewModel,
 ) {
     val context = LocalContext.current
-    var notePath by remember { mutableStateOf("Not set") }
-    var musicPath by remember { mutableStateOf("Not set") }
+    var notePath by remember { mutableStateOf(EMPTY_PATH) }
+    var musicPath by remember { mutableStateOf(EMPTY_PATH) }
     var fullStorageAccessGranted by remember { mutableStateOf(false) }
     
     // Check current permission status when the screen loads
-    LaunchedEffect(Unit) {
+    LaunchedEffect(key1 = Unit) {
         fullStorageAccessGranted = Environment.isExternalStorageManager()
-        val storedNotePath = getStoredNotePath(context)
-        notePath = if (storedNotePath == "Not set") storedNotePath else getPathFromUri(storedNotePath.toUri())
-        val storedMusicPath = getStoredMusicPath(context)
-        musicPath = if (storedMusicPath == "Not set") storedMusicPath else getPathFromUri(storedMusicPath.toUri())
+        val storedNotePath = getNotesFolderPath(context)
+        notePath = if (storedNotePath.isEmpty()) EMPTY_PATH
+            else getPathFromUri(storedNotePath.toUri())
+        val storedMusicPath = getTracksFolderPath(context)
+        musicPath = if (storedMusicPath.isEmpty()) EMPTY_PATH
+            else getPathFromUri(storedMusicPath.toUri())
     }
 
     // Launchers for directory picking
     val notePathLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
-        Log.d("TAG", uri.toString())
         val path = getPathFromUri(uri)
-        Log.d("TAG", path)
         if (path.isNotEmpty()) {
             // Take URI permission to persist access across app restarts
             try {
@@ -66,13 +59,12 @@ fun SettingsScreen(
                 Log.e("SettingsScreen", "Failed to take URI permission: ${e.message}")
             }
             
-            storeNotePath(context, uri.toString())
+            setNotesFolderPath(context, uri.toString())
             notePath = path
-            viewModel.loadMusicInfoFromMarkdown(context)
         }
     }
     
-    val musicPathLauncher = rememberLauncherForActivityResult(
+    val trackPathLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
         val path = getPathFromUri(uri)
@@ -83,14 +75,12 @@ fun SettingsScreen(
                     uri!!,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION,
                 )
-                Log.d("TAG", "Music Path: $uri")
             } catch (e: SecurityException) {
                 Log.e("SettingsScreen", "Failed to take URI permission: ${e.message}")
             }
             
-            storeMusicPath(context, uri.toString())
+            setTracksFolderPath(context, uri.toString())
             musicPath = path
-            viewModel.loadMusicInfoFromSource(context)
         }
     }
 
@@ -106,12 +96,6 @@ fun SettingsScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Text(
-            text = "Settings",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
-
         // Storage permission setting
         SettingItemWithButton(
             title = "Storage Access",
@@ -141,21 +125,14 @@ fun SettingsScreen(
         SettingItem(
             title = "Music Path",
             currentValue = musicPath,
-            onButtonClick = { musicPathLauncher.launch(null) }
+            onButtonClick = { trackPathLauncher.launch(null) }
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(
             modifier = Modifier.fillMaxWidth(),
-            onClick = {
-                viewModel.musicInfoList = listOf()
-                viewModel.cachedMusicInfoList = null
-                viewModel.saveMusicInfoListToCache(context, listOf())
-                viewModel.loadMusicInfoFromMarkdown(context)
-                viewModel.loadMusicInfoFromSource(context)
-            },
-
+            onClick = { viewModel.scanAll(context) },
         ) {
             Text("Rescan")
         }
@@ -253,28 +230,7 @@ fun SettingItemWithButton(
 @Composable
 fun SettingsScreenPreview() {
     // Create a mock launcher that doesn't actually launch anything for preview
-    SettingsScreen(viewModel = MusicPlayerViewModel())
-}
-
-// Helper functions for storing and retrieving paths
-private fun getStoredNotePath(context: Context): String {
-    val sharedPreferences = context.getSharedPreferences("music_player_prefs", Context.MODE_PRIVATE)
-    val result = sharedPreferences.getString("note_path", "Not set") ?: "Not set"
-    return result
-}
-
-private fun storeNotePath(context: Context, path: String) {
-    val sharedPreferences = context.getSharedPreferences("music_player_prefs", Context.MODE_PRIVATE)
-    sharedPreferences.edit { putString("note_path", path) }
-}
-
-private fun getStoredMusicPath(context: Context): String {
-    val sharedPreferences = context.getSharedPreferences("music_player_prefs", Context.MODE_PRIVATE)
-    val result = sharedPreferences.getString("music_path", "Not set") ?: "Not set"
-    return result
-}
-
-private fun storeMusicPath(context: Context, path: String) {
-    val sharedPreferences = context.getSharedPreferences("music_player_prefs", Context.MODE_PRIVATE)
-    sharedPreferences.edit { putString("music_path", path) }
+    SettingsScreen(viewModel = MusicPlayerViewModel(
+        MusicPlayerSearchManager(LocalContext.current)
+    ))
 }

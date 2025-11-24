@@ -1,6 +1,6 @@
 package com.example.musicplayer
 
-import android.content.Context
+import android.annotation.SuppressLint
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,41 +10,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.musicplayer.data.TrackDocument
 
 @Composable
 fun SearchScreen(
     modifier: Modifier = Modifier,
-    onTrackSelected: (Context, MusicInfo) -> Unit = { _, _ -> },
-    musicPlayerViewModel: MusicPlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    onTrackSelected: (TrackDocument) -> Unit = { _ -> },
+    viewModel: MusicPlayerViewModel,
 ) {
-    var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
-    val context = LocalContext.current
-    val musicInfoList = remember { musicPlayerViewModel.musicInfoList }
-    
-    // Create track list from music info
-    val allTracks = musicInfoList.map { musicInfo ->
-        if (musicInfo.album.isNotEmpty() && musicInfo.creator.isNotEmpty()) {
-            "${musicInfo.album} - ${musicInfo.creator.first()}"
-        } else if (musicInfo.album.isNotEmpty()) {
-            musicInfo.album
-        } else if (musicInfo.creator.isNotEmpty()) {
-            musicInfo.creator.first()
-        } else {
-            // Use the source file name if no album or creator info
-            val fileName = musicInfo.sourceFile.substringBeforeLast(".")
-            fileName.ifEmpty { "Unknown Track" }
-        }
-    }
-    
-    // Filter tracks based on search query
-    val filteredTracks = if (searchQuery.text.isEmpty()) {
-        allTracks
-    } else {
-        allTracks.filter { track ->
-            track.contains(searchQuery.text, ignoreCase = true)
-        }
+    val musicState = viewModel.musicState
+
+    LaunchedEffect(key1 = Unit) {
+        viewModel.onSearchQueryChange("")
     }
 
     Column(
@@ -54,8 +34,8 @@ fun SearchScreen(
     ) {
         // Search bar
         TextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
+            value = musicState.searchQuery,
+            onValueChange = viewModel::onSearchQueryChange,
             label = { Text("Search tracks...") },
             leadingIcon = {
                 Icon(
@@ -70,41 +50,29 @@ fun SearchScreen(
 
         // Search results
         LazyColumn {
-            items(filteredTracks) { track ->
-                // Find the corresponding MusicInfo for this track
-                val correspondingMusicInfo = musicInfoList.find { musicInfo ->
-                    val trackName = if (musicInfo.album.isNotEmpty() && musicInfo.creator.isNotEmpty()) {
-                        "${musicInfo.album} - ${musicInfo.creator.first()}"
-                    } else if (musicInfo.album.isNotEmpty()) {
-                        musicInfo.album
-                    } else if (musicInfo.creator.isNotEmpty()) {
-                        musicInfo.creator.first()
-                    } else {
-                        val fileName = musicInfo.sourceFile.substringBeforeLast(".")
-                        fileName.ifEmpty { "Unknown Track" }
-                        fileName
-                    }
-                    trackName == track
-                }
-                
-                ListItem(
-                    headlineContent = { Text(text = track) },
+            items(musicState.trackList) { music ->
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
-                            correspondingMusicInfo?.let {
-                                onTrackSelected(context, it)
-                            }
-                        }
-                        .padding(vertical = 8.dp)
-                )
+                        .padding(8.dp)
+                        .clickable(onClick = { onTrackSelected(music) })
+                ) {
+                    Text(text = music.aliases.toString())
+                    Text(text = music.creators.toString())
+                    Text(text = music.year.toString())
+                }
             }
         }
     }
 }
 
-@androidx.compose.ui.tooling.preview.Preview
+@SuppressLint("ViewModelConstructorInComposable")
+@Preview(showBackground = true)
 @Composable
 fun SearchScreenPreview() {
-    SearchScreen(onTrackSelected = { _, _ -> /* Preview action */ })
+    SearchScreen(
+        viewModel = MusicPlayerViewModel(
+            MusicPlayerSearchManager(LocalContext.current)
+        ),
+    )
 }

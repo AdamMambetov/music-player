@@ -4,18 +4,23 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
 import android.os.Environment
-import android.util.Log
+import android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.annotation.OptIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,10 +31,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import androidx.compose.ui.unit.dp
 import com.example.musicplayer.ui.theme.MusicPlayerTheme
 import androidx.core.net.toUri
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.media3.common.util.UnstableApi
 
 class MainActivity : ComponentActivity() {
@@ -37,6 +44,18 @@ class MainActivity : ComponentActivity() {
     private val fullStorageAccessLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {}
+
+    private val viewModel: MusicPlayerViewModel by viewModels(
+        factoryProducer = {
+            object : ViewModelProvider.Factory {
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    return MusicPlayerViewModel(
+                        MusicPlayerSearchManager(applicationContext)
+                    ) as T
+                }
+            }
+        }
+    )
 
     @OptIn(UnstableApi::class)
     @SuppressLint("ViewModelConstructorInComposable")
@@ -47,17 +66,12 @@ class MainActivity : ComponentActivity() {
         // Start the music player service
         val serviceIntent = Intent(this, MusicPlayerService::class.java)
         startService(serviceIntent)
-        
+
         setContent {
             MusicPlayerTheme {
-                // Check and request storage permissions when the app starts
-                val viewModel = MusicPlayerViewModel()
-                LaunchedEffect(Unit) {
-                    Log.d("TAG", "Launched effect")
+                LaunchedEffect(key1 = Unit) {
                     requestStoragePermissions()
                     viewModel.initializePlayer(this@MainActivity)
-                    viewModel.loadMusicInfoFromMarkdown(this@MainActivity)
-                    viewModel.loadMusicInfoFromSource(this@MainActivity)
                 }
                 
                 MusicPlayerApp(viewModel = viewModel)
@@ -67,7 +81,7 @@ class MainActivity : ComponentActivity() {
 
     private fun requestStoragePermissions() {
         if (!Environment.isExternalStorageManager()) {
-            val intent = Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+            val intent = Intent(ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
                 data = "package:$packageName".toUri()
             }
             fullStorageAccessLauncher.launch(intent)
@@ -75,90 +89,126 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@PreviewScreenSizes
+@kotlin.OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MusicPlayerApp(viewModel: MusicPlayerViewModel = MusicPlayerViewModel()) {
+fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
-    var selectedTrack by remember { mutableStateOf<MusicInfo?>(null) }
-    val context = LocalContext.current
+    var isTrackSelected by remember { mutableStateOf(false) }
+    var showNavigationRail by remember { mutableStateOf(false) }
 
-    NavigationSuiteScaffold(
-        navigationSuiteItems = {
-            AppDestinations.entries.forEach {
-                item(
-                    icon = {
+    if (showNavigationRail) {
+        NavigationSuiteScaffold(
+            layoutType = NavigationSuiteType.NavigationRail,
+            navigationSuiteItems = {
+                AppDestinations.entries.forEach {
+                    item(
+                        selected = it == currentDestination,
+                        onClick = {
+                            currentDestination = it
+                            isTrackSelected = false
+                        },
+                        icon = {
+                            Icon(
+                                painter = painterResource(it.icon),
+                                contentDescription = it.label
+                            )
+                        },
+                    )
+                }
+            }
+        ) {
+            MainScreens(
+                onTopBarClicked = { showNavigationRail = !showNavigationRail },
+                onTrackSelected = { isTrackSelected = it },
+                currentDestination = currentDestination,
+                isTrackSelected = isTrackSelected,
+                viewModel = viewModel,
+            )
+        }
+    } else {
+        MainScreens(
+            onTopBarClicked = { showNavigationRail = !showNavigationRail },
+            onTrackSelected = { isTrackSelected = it },
+            currentDestination = currentDestination,
+            isTrackSelected = isTrackSelected,
+            viewModel = viewModel,
+        )
+    }
+}
+
+@kotlin.OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainScreens(
+    onTopBarClicked: () -> Unit,
+    onTrackSelected: (value: Boolean) -> Unit,
+    currentDestination: AppDestinations,
+    isTrackSelected: Boolean,
+    viewModel: MusicPlayerViewModel,
+) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = {
+                    IconButton(onClick = onTopBarClicked) {
                         Icon(
-                            painter = painterResource(it.icon),
-                            contentDescription = it.label
+                            painter = painterResource(R.drawable.view_headline),
+                            contentDescription = "Show Navigation Rail",
+                            modifier = Modifier.size(64.dp)
                         )
-                    },
-                    label = { Text(it.label) },
-                    selected = it == currentDestination,
-                    onClick = { currentDestination = it }
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+        when (currentDestination) {
+            AppDestinations.HOME -> {
+                if (isTrackSelected) {
+                    // Show music info screen for selected track
+                    MusicInfoScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        viewModel = viewModel,
+                        onBackClicked = { onTrackSelected(false) }
+                    )
+                } else {
+                    MusicPlayerScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        viewModel = viewModel,
+                        onTrackSelected = { context, track ->
+                            onTrackSelected(true)
+                            viewModel.setQueueToDefault()
+                            viewModel.setMediaSourceWithService(track)
+                        }
+                    )
+                }
+            }
+            AppDestinations.SEARCH -> {
+                SearchScreen(
+                    modifier = Modifier.padding(innerPadding),
+                    viewModel = viewModel,
+                    onTrackSelected = { track ->
+                        onTrackSelected(true)
+                        viewModel.setMediaSourceWithService(track)
+                    }
+                )
+            }
+            AppDestinations.SETTINGS -> {
+                SettingsScreen(
+                    modifier = Modifier.padding(innerPadding),
+                    viewModel = viewModel,
                 )
             }
         }
-    ) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            when {
-                selectedTrack != null -> {
-                    // When showing music info screen, set the media source if it's different
-                    LaunchedEffect(selectedTrack) {
-                        selectedTrack?.let { track ->
-                            viewModel.setMediaSourceWithService(context, track)
-                        }
-                    }
-                    
-                    // Show music info screen for selected track
-                    MusicInfoScreen(
-                        trackName = selectedTrack!!.aliases.getOrElse(0) { "Empty name" },
-                        modifier = Modifier.padding(innerPadding),
-                        musicPlayerViewModel = viewModel,
-                        onBackClicked = { selectedTrack = null }
-                    )
-                }
-                else -> {
-                    when (currentDestination) {
-                        AppDestinations.HOME -> {
-                            MusicPlayerScreen(
-                                modifier = Modifier.padding(innerPadding),
-                                musicPlayerViewModel = viewModel,
-                                onTrackSelected = { context, track ->
-                                    selectedTrack = track
-                                    viewModel.setMediaSourceWithService(context, track)
-                                }
-                            )
-                        }
-                        AppDestinations.SEARCH -> {
-                            SearchScreen(
-                                modifier = Modifier.padding(innerPadding),
-                                onTrackSelected = { context, track ->
-                                    selectedTrack = track
-                                    viewModel.setMediaSourceWithService(context, track)
-                                }
-                            )
-                        }
-                        AppDestinations.SETTINGS -> {
-                            SettingsScreen(
-                                modifier = Modifier.padding(innerPadding),
-                                viewModel = viewModel,
-                            )
-                        }
-                        else -> {
-                            Greeting(
-                                name = when (currentDestination) {
-                                    AppDestinations.FAVORITES -> "Favorites"
-                                    AppDestinations.SETTINGS -> "Settings"
-                                    else -> "Android"
-                                },
-                                modifier = Modifier.padding(innerPadding)
-                            )
-                        }
-                    }
-                }
-            }
-        }
     }
+}
+
+@SuppressLint("ViewModelConstructorInComposable")
+@Composable
+@PreviewScreenSizes
+fun MusicPlayerAppPreview() {
+    MusicPlayerApp(MusicPlayerViewModel(
+        MusicPlayerSearchManager(LocalContext.current)
+    ))
 }
 
 enum class AppDestinations(
@@ -167,22 +217,6 @@ enum class AppDestinations(
 ) {
    HOME("Home", R.drawable.home),
    SEARCH("Search", R.drawable.search),
-   FAVORITES("Favorites", R.drawable.favorite),
    SETTINGS("Settings", R.drawable.settings),
 }
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-   Text(
-       text = "Hello $name!",
-       modifier = modifier
-   )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-   MusicPlayerTheme {
-       Greeting("Android")
-   }
-}

@@ -1,5 +1,6 @@
 package com.example.musicplayer
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,52 +16,56 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
 fun MusicInfoScreen(
-    trackName: String,
     modifier: Modifier = Modifier,
-    musicPlayerViewModel: MusicPlayerViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    viewModel: MusicPlayerViewModel,
     onBackClicked: () -> Unit = {},
 ) {
-    val isPlaying = musicPlayerViewModel.isPlaying
-    val currentPosition = musicPlayerViewModel.currentPosition
-    val duration = musicPlayerViewModel.duration
+    val isPlaying = viewModel.isPlaying
+    val isShuffle = viewModel.isShuffle
+    val currentPosition = viewModel.currentPosition
+    val duration = viewModel.duration
+    val context = LocalContext.current
     
     // Start playing when the screen is shown (if not already playing)
-    androidx.compose.runtime.LaunchedEffect(trackName) {
+    LaunchedEffect(key1 = Unit) {
         // The media source should already be set by MainActivity
         // Just make sure to start playing if not already
         if (!isPlaying) {
-            musicPlayerViewModel.play()
+            viewModel.play(context)
         }
     }
-    
-    // Extract artist name from track string (assuming format "Album - Artist Name")
-    val parts = trackName.split(" - ")
-    val artistName = if (parts.size > 1) {
-        parts[1]
-    } else {
-        "Unknown Artist"
-    }
-    
-    val trackTitle = if (parts.size > 1) {
-        parts[0]
-    } else {
-        trackName
-    }
+
+    val name = viewModel
+        .currentTrack
+        .aliases
+        .getOrElse(0) { "Unknown Music" }
+    val artists = viewModel
+        .currentTrack
+        .creators
+        .joinToString(", ")
+        .ifEmpty { "Unknow Artist" }
+    val album = viewModel
+        .currentTrack
+        .album
+        .ifEmpty { "Unknown Album" }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(horizontal = 15.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Back button
@@ -93,18 +98,27 @@ fun MusicInfoScreen(
             )
         }
 
+        Text(text = viewModel.currentTrack.listenInSec.toString())
+
         Spacer(modifier = Modifier.weight(1f))
 
         // Track info
         Text(
-            text = trackTitle,
+            text = name,
             fontSize = 24.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
         Text(
-            text = artistName,
+            text = artists,
+            fontSize = 18.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        Text(
+            text = album,
             fontSize = 18.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(bottom = 24.dp)
@@ -112,9 +126,10 @@ fun MusicInfoScreen(
 
         // Progress slider
         Slider(
-            value = if (duration > 0) (currentPosition.toFloat() / duration.toFloat()) * 10 else 0f,
-            onValueChange = { 
-                musicPlayerViewModel.seekTo(((it / 100) * duration).toLong())
+            valueRange = 0f..duration.toFloat(),
+            value = currentPosition.toFloat(),
+            onValueChange = {
+                viewModel.seekTo(context, it.toLong())
             },
             modifier = Modifier.fillMaxWidth()
         )
@@ -126,39 +141,75 @@ fun MusicInfoScreen(
                 .padding(top = 16.dp),
             horizontalArrangement = Arrangement.Center
         ) {
-            IconButton(onClick = { musicPlayerViewModel.previousTrack() }) {
+            IconButton(
+                onClick = {
+                    if (isShuffle) viewModel.disableShuffle()
+                    else viewModel.enableShuffle()
+                }
+            ) {
                 Icon(
-                    painter = painterResource(R.drawable.skip_previous),
-                    contentDescription = "Previous",
-                    modifier = Modifier.size(48.dp)
+                    painter = painterResource(id = R.drawable.shuffle),
+                    contentDescription = "Shuffle",
+                    modifier = Modifier.size(64.dp),
+                    tint = if (isShuffle) Color.Unspecified else Color.LightGray
                 )
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
-            IconButton(onClick = { if (isPlaying) musicPlayerViewModel.pause() else musicPlayerViewModel.play() }) {
+            IconButton(onClick = { viewModel.previousTrack() }) {
                 Icon(
-                    painter = painterResource(if (isPlaying) R.drawable.pause else R.drawable.play_arrow),
+                    painter = painterResource(R.drawable.skip_previous),
+                    contentDescription = "Previous",
+                    modifier = Modifier.size(64.dp)
+                )
+            }
+
+            IconButton(
+                onClick = {
+                    if (isPlaying) viewModel.pause()
+                    else viewModel.play(context)
+                }
+            ) {
+                Icon(
+                    painter = painterResource(
+                        id = if (isPlaying) R.drawable.pause
+                             else R.drawable.play_arrow
+                    ),
                     contentDescription = if (isPlaying) "Pause" else "Play",
+                    modifier = Modifier.size(64.dp)
+                )
+            }
+
+            IconButton(onClick = { viewModel.nextTrack() }) {
+                Icon(
+                    painter = painterResource(R.drawable.skip_next),
+                    contentDescription = "Next",
                     modifier = Modifier.size(64.dp)
                 )
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
-            IconButton(onClick = { musicPlayerViewModel.nextTrack() }) {
+            IconButton(onClick = {}) {
                 Icon(
-                    painter = painterResource(R.drawable.skip_next),
-                    contentDescription = "Next",
-                    modifier = Modifier.size(48.dp)
+                    painter = painterResource(R.drawable.favorite),
+                    contentDescription = "Favorite",
+                    modifier = Modifier.size(64.dp),
+                    tint = Color.LightGray,
                 )
             }
         }
     }
 }
 
-@androidx.compose.ui.tooling.preview.Preview
+@SuppressLint("ViewModelConstructorInComposable")
+@Preview(showBackground = true)
 @Composable
 fun MusicInfoScreenPreview() {
-    MusicInfoScreen(trackName = "Sample Track - Sample Artist")
+    MusicInfoScreen(
+        viewModel = MusicPlayerViewModel(
+            MusicPlayerSearchManager(LocalContext.current)
+        ),
+    )
 }

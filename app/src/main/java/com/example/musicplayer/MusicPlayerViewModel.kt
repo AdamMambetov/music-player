@@ -3,15 +3,15 @@ package com.example.musicplayer
 import android.content.ComponentName
 import android.content.ContentUris
 import android.content.Context
-import android.content.SharedPreferences
 import android.net.Uri
+import android.os.CountDownTimer
 import android.provider.MediaStore
 import android.util.Log
 import androidx.annotation.OptIn
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -20,45 +20,67 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
-import androidx.core.content.edit
 import androidx.media3.common.util.UnstableApi
+import com.example.musicplayer.data.CreatorDocument
+import com.example.musicplayer.data.TrackDocument
+import com.example.musicplayer.data.TrackListState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlin.random.Random
 
-class MusicPlayerViewModel : ViewModel() {
+class MusicPlayerViewModel(
+    val searchManager: MusicPlayerSearchManager
+) : ViewModel() {
     var isPlaying by mutableStateOf(false)
+
+    var isShuffle by mutableStateOf(false)
 
     var currentPosition by mutableLongStateOf(0L)
 
     var duration by mutableLongStateOf(0L)
-    
-    // List of music info from markdown files
-    var musicInfoList by mutableStateOf<List<MusicInfo>>(emptyList())
-    // Cached music info list to avoid reloading
-    var cachedMusicInfoList: List<MusicInfo>? = null
+
+    var allTracks = mutableStateListOf<TrackDocument>()
+    var allCreators = mutableStateListOf<CreatorDocument>()
+
+    var currentTrack by mutableStateOf(TrackDocument.createEmpty())
+
+    var currentQueue = mutableListOf<TrackDocument>()
+
+    var currentQueueIndex by mutableIntStateOf(-1)
+
+    var randomQueue = mutableListOf<TrackDocument>()
+
+    var randomQueueIndex by mutableIntStateOf(-1)
+
+    var random = Random(Random.nextLong())
+
+    var musicState by mutableStateOf(TrackListState())
+        private set
+
+    private var playerTimer: CountDownTimer? = null
+
+    private var lastListenModifiedTimeInMillis: Long = Long.MAX_VALUE
+
+    private var searchJob: Job? = null
+    private var scanJob: Job? = null
 
     private var _mediaController: MediaController? = null
 
-    private fun getSharedPreferences(context: Context): SharedPreferences {
-        return context.getSharedPreferences("music_player_cache", Context.MODE_PRIVATE)
-    }
-    
-    fun saveMusicInfoListToCache(context: Context, musicInfoList: List<MusicInfo>) {
-        val gson = Gson()
-        val json = gson.toJson(musicInfoList)
-        getSharedPreferences(context).edit { putString("cached_music_info_list", json) }
-    }
-    
-    fun loadMusicInfoListFromCache(context: Context): List<MusicInfo>? {
-        val gson = Gson()
-        val json = getSharedPreferences(context).getString("cached_music_info_list", null)
-        return if (json != null) {
-            val listType = object : TypeToken<List<MusicInfo>>() {}.type
-            gson.fromJson(json, listType)
-        } else {
-            null
+    init {
+        viewModelScope.launch {
+            searchManager.init()
+            loadAllFromCache()
         }
+    }
+
+    override fun onCleared() {
+        _mediaController?.release()
+        searchJob?.cancel()
+        scanJob?.cancel()
+        searchManager.closeSession()
+        super.onCleared()
     }
 
     @OptIn(UnstableApi::class)
@@ -74,12 +96,23 @@ class MusicPlayerViewModel : ViewModel() {
                 _mediaController?.addListener(object : Player.Listener {
                     override fun onIsPlayingChanged(isPlaying: Boolean) {
                         this@MusicPlayerViewModel.isPlaying = isPlaying
+                        if (isPlaying)
+                            startTimer(context)
+                        else
+                            playerTimer?.cancel()
                     }
 
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         super.onPlaybackStateChanged(playbackState)
+
                         if (playbackState == Player.STATE_READY) {
                             duration = _mediaController?.duration ?: 0L
+                            lastListenModifiedTimeInMillis = duration
+                        }
+                        if (playbackState == Player.STATE_ENDED) {
+                            nextTrack()
+                            lastListenModifiedTimeInMillis = Long.MAX_VALUE
+                            playerTimer?.cancel()
                         }
                     }
 
@@ -90,108 +123,55 @@ class MusicPlayerViewModel : ViewModel() {
                     ) {
                         super.onPositionDiscontinuity(oldPosition, newPosition, reason)
                         currentPosition = _mediaController?.currentPosition ?: 0L
+                        Log.d("TAG", "onPositionDiscontinuity: $oldPosition - $newPosition")
                     }
                 })
             }, { it.run() })
         }
     }
-    
-    /**
-     * Load music info from markdown files in the notePath
-     */
-    fun loadMusicInfoFromMarkdown(context: Context) {
-        Log.d("TAG", "loadMusicInfoFromMarkdown")
-        viewModelScope.launch {
-            // Check if we have cached data available in memory first
-            if (cachedMusicInfoList != null) {
-                Log.d("TAG", "Using cached music info list from memory")
-                musicInfoList = cachedMusicInfoList!!
-            } else {
-                // Check if we have cached data in SharedPreferences
-                val cachedList = loadMusicInfoListFromCache(context)
-                if (cachedList != null) {
-                    if (cachedList.isNotEmpty()) {
-                        Log.d("TAG", "Using cached music info list from storage")
-                        musicInfoList = cachedList
-                        cachedMusicInfoList = cachedList
-                        return@launch
-                    }
-                }
-                val markdownMusicReader = MarkdownMusicReader()
-                // Clear the list first
-                musicInfoList = markdownMusicReader.scanNotePathForMusicInfo(context)
 
-                // Cache the loaded list in memory and in SharedPreferences
-                cachedMusicInfoList = musicInfoList
-                saveMusicInfoListToCache(context, musicInfoList)
+    fun scanAll(context: Context) {
+        scanJob?.cancel()
+        scanJob = viewModelScope.launch(context = Dispatchers.IO) {
+            searchManager.removeTracks(searchManager.searchAllTracks())
+            searchManager.removeCreators(searchManager.searchAllCreators())
+            searchManager.removeAlbums(searchManager.searchAllAlbums())
+            searchManager.removePlayLists(searchManager.searchAllPlaylists())
+            Log.d("TAG", "Finish clean AppSearch index")
 
-                return@launch
-
-                // Load music info incrementally with batching to prevent UI freezing
-                val batchList = mutableListOf<MusicInfo>()
-                val batchSize = 5 // Update UI every 5 items
-
-                // Process files on a background thread
-                withContext(kotlinx.coroutines.Dispatchers.Default) {
-                    markdownMusicReader.scanNotePathForMusicInfoIncremental(context) { musicInfo ->
-                        batchList.add(musicInfo)
-                        // Update the UI in batches to prevent freezing
-                        if (batchList.size >= batchSize) {
-                            // Switch to main thread to update UI
-                            withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                musicInfoList = musicInfoList + batchList.toList()
-                            }
-                            batchList.clear()
-                        }
-                        Log.d("TAG", "add music item to musicInfoList")
-                    }
-                }
-
-                // Add any remaining items that didn't make a full batch
-                if (batchList.isNotEmpty()) {
-                    withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        musicInfoList = musicInfoList + batchList.toList()
-                    }
-                }
-
-                // Cache the loaded list in memory and in SharedPreferences
-                cachedMusicInfoList = musicInfoList
-                saveMusicInfoListToCache(context, musicInfoList)
-            }
+            val markdownReader = MarkdownReader()
+            val creators = markdownReader.scanCreators(context)
+            allCreators.clear()
+            allCreators.addAll(creators)
+            searchManager.putCreators(allCreators)
+            Log.d("TAG", "Finish scan creators from markdown")
+            val tracks = markdownReader.scanTracks(context, allCreators)
+            allTracks.clear()
+            allTracks.addAll(tracks)
+            Log.d("TAG", "Finish scan tracks from markdown")
+            scanSourceTracks(context)
+            searchManager.putTracks(allTracks)
+            Log.d("TAG", "Finish scan tracks from source")
         }
     }
 
-    /**
-     * Load music info from source files in the musicPath
-     */
-    fun loadMusicInfoFromSource(context: Context) {
-        val sharedPreferences = context.getSharedPreferences("music_player_prefs", Context.MODE_PRIVATE)
-        val musicPathString = sharedPreferences.getString("music_path", null)
-        Log.d("TAG", "Music Path String: $musicPathString")
-
-        if (musicPathString?.toUri() == null)
+    private fun scanSourceTracks(context: Context) {
+        val musicPathString = getTracksFolderPath(context)
+        if (musicPathString.isEmpty())
             return
-        if (cachedMusicInfoList == null)
-            return
-        if (cachedMusicInfoList!!.isEmpty())
-            return
-        if (cachedMusicInfoList!!.find { it.sourceUri.isEmpty() } == null)
+        if (allTracks.isEmpty())
             return
 
         val uri = musicPathString.toUri()
         val queryUri = MediaStore.Audio.Media.getContentUri(
             MediaStore.VOLUME_EXTERNAL
         )
-        Log.d("TAG", "Query Uri Path: $queryUri")
-
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.RELATIVE_PATH,
             MediaStore.Audio.Media.DISPLAY_NAME,
         )
-
         val selectionPath = uri.lastPathSegment!!.substringAfter(":") + "/"
-        Log.d("TAG", "Selection Path: $selectionPath")
         val selection = "${MediaStore.Audio.Media.RELATIVE_PATH} = ?"
         val selectionArgs = arrayOf(
             selectionPath,
@@ -205,68 +185,142 @@ class MusicPlayerViewModel : ViewModel() {
             null,
         )?.use { cursor ->
             val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val pathColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.RELATIVE_PATH)
             val displayNameColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
-                val path = cursor.getString(pathColumn)
                 val fileName = cursor.getString(displayNameColumn)
-                Log.d("TAG", "File: $path$fileName")
                 val contentUri: Uri = ContentUris.withAppendedId(
                     MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                     id,
                 )
-                Log.d("TAG", "Content Uri: $contentUri")
-                cachedMusicInfoList!!.find { musicInfo -> musicInfo.sourceFile == fileName }?.sourceUri = contentUri.toString()
+                allTracks.find {
+                    musicInfo -> musicInfo.sourceFile == fileName
+                }?.sourceUri = contentUri.toString()
             }
-            saveMusicInfoListToCache(context, cachedMusicInfoList!!)
         }
     }
 
-
-    fun setMediaSource(musicInfo: MusicInfo) {
-        // Update the media source in the service
-        if (musicInfo.sourceUri.isNotEmpty()) {
-            _mediaController?.setMediaItem(MediaItem.fromUri(musicInfo.sourceUri))
+    fun loadAllFromCache() {
+        viewModelScope.launch(context = Dispatchers.IO) {
+            allCreators.clear()
+            allCreators.addAll(searchManager.searchAllCreators())
+            Log.d("TAG", "Finish scan creators from cache ${allCreators.size}")
+            allTracks.clear()
+            allTracks.addAll(searchManager.searchAllTracks())
+            Log.d("TAG", "Finish scan tracks from cache ${allTracks.size}")
         }
     }
-    
-    fun setMediaSourceWithService(context: Context, musicInfo: MusicInfo) {
-        if (musicInfo.sourceUri.isNotEmpty()) {
+
+    fun setMediaSourceWithService(musicInfo: TrackDocument) {
+        _mediaController?.shuffleModeEnabled
+        if (musicInfo.sourceUri.isNotEmpty() && musicInfo.sourceFile !== currentTrack.sourceFile) {
             Log.d("TAG", "Source Uri: ${musicInfo.sourceUri}")
             // Use the MediaController to set the media source instead of starting the service again
             // This prevents multiple notifications from being created
-            setMediaSource(musicInfo)
+            currentTrack = musicInfo
+            currentQueueIndex = allTracks.indexOf(currentTrack)
+            if (isShuffle) {
+                randomQueueIndex = randomQueue.indexOf(currentTrack)
+            }
+            _mediaController?.setMediaItem(MediaItem.fromUri(musicInfo.sourceUri))
         }
     }
 
-    fun play() {
+    private fun startTimer(context: Context) {
+        if (duration == 0L)
+            return
+        playerTimer?.cancel()
+        playerTimer = object : CountDownTimer(
+            duration-currentPosition, 100L
+        ) {
+            override fun onFinish() {
+                currentPosition = duration
+                lastListenModifiedTimeInMillis = 0L
+            }
+
+            override fun onTick(millisUntilFinished: Long) {
+                currentPosition = duration - millisUntilFinished
+                if (lastListenModifiedTimeInMillis - millisUntilFinished >= 1000L) {
+                    lastListenModifiedTimeInMillis = millisUntilFinished
+                    currentTrack.listenInSec++
+                    val markdownReader = MarkdownReader()
+                    markdownReader.saveTrack(context, currentTrack)
+                    currentTrack.creators.forEach {
+                        it.listenInSec++
+                    }
+                    viewModelScope.launch {
+                        searchManager.putTracks(listOf(currentTrack))
+                        searchManager.putCreators(currentTrack.creators)
+                    }
+                }
+            }
+
+        }.start()
+    }
+
+    fun play(context: Context) {
         _mediaController?.play()
         isPlaying = true
+        startTimer(context)
     }
 
     fun pause() {
         _mediaController?.pause()
         isPlaying = false
+        playerTimer?.cancel()
     }
 
-    fun seekTo(position: Long) {
+    fun seekTo(context: Context, position: Long) {
         _mediaController?.seekTo(position)
         currentPosition = position
+        lastListenModifiedTimeInMillis = duration - currentPosition
+        if (isPlaying)
+            startTimer(context)
     }
 
     fun nextTrack() {
-        _mediaController?.seekToNext()
+        val queue = if (isShuffle) randomQueue else currentQueue
+        val index = if (isShuffle) randomQueueIndex else currentQueueIndex
+
+        setMediaSourceWithService(
+            queue.getOrElse(index + 1) { return }
+        )
     }
 
     fun previousTrack() {
-        _mediaController?.seekToPrevious()
+        val queue = if (isShuffle) randomQueue else currentQueue
+        val index = if (isShuffle) randomQueueIndex else currentQueueIndex
+
+        setMediaSourceWithService(
+            queue.getOrElse(index - 1) { return }
+        )
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        _mediaController?.run {
-            release()
+    fun enableShuffle() {
+        isShuffle = true
+        randomQueue = currentQueue.toMutableList()
+        randomQueue.shuffle(random)
+        randomQueueIndex = randomQueue.indexOf(currentQueue[currentQueueIndex])
+    }
+
+    fun disableShuffle() {
+        isShuffle = false
+        randomQueue.clear()
+        randomQueueIndex = -1
+    }
+
+    fun setQueueToDefault() {
+        currentQueue = allTracks.toMutableList()
+    }
+
+    fun onSearchQueryChange(query: String) {
+        musicState = musicState.copy(searchQuery = query)
+
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+//            delay(500L)
+            val musicList = searchManager.searchTracks(query)
+            musicState = musicState.copy(trackList = musicList)
         }
     }
 }
