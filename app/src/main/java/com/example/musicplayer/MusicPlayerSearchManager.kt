@@ -1,7 +1,6 @@
 package com.example.musicplayer
 
 import android.content.Context
-import android.util.Log
 import androidx.appsearch.app.AppSearchSession
 import androidx.appsearch.app.PutDocumentsRequest
 import androidx.appsearch.app.RemoveByDocumentIdRequest
