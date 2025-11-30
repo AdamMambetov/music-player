@@ -73,7 +73,6 @@ class MainActivity : ComponentActivity() {
                     requestStoragePermissions()
                     viewModel.initializePlayer(this@MainActivity)
                 }
-                
                 MusicPlayerApp(viewModel = viewModel)
             }
         }
@@ -94,6 +93,7 @@ class MainActivity : ComponentActivity() {
 fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     var isTrackSelected by remember { mutableStateOf(false) }
+    var isPlaylistSelected by remember { mutableStateOf(false) }
     var showNavigationRail by remember { mutableStateOf(false) }
 
     if (showNavigationRail) {
@@ -120,8 +120,10 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
             MainScreens(
                 onTopBarClicked = { showNavigationRail = !showNavigationRail },
                 onTrackSelected = { isTrackSelected = it },
+                onPlaylistSelected = { isPlaylistSelected = it },
                 currentDestination = currentDestination,
                 isTrackSelected = isTrackSelected,
+                isPlaylistSelected = isPlaylistSelected,
                 viewModel = viewModel,
             )
         }
@@ -129,8 +131,10 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
         MainScreens(
             onTopBarClicked = { showNavigationRail = !showNavigationRail },
             onTrackSelected = { isTrackSelected = it },
+            onPlaylistSelected = { isPlaylistSelected = it },
             currentDestination = currentDestination,
             isTrackSelected = isTrackSelected,
+            isPlaylistSelected = isPlaylistSelected,
             viewModel = viewModel,
         )
     }
@@ -141,8 +145,10 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
 fun MainScreens(
     onTopBarClicked: () -> Unit,
     onTrackSelected: (value: Boolean) -> Unit,
+    onPlaylistSelected: (value: Boolean) -> Unit,
     currentDestination: AppDestinations,
     isTrackSelected: Boolean,
+    isPlaylistSelected: Boolean,
     viewModel: MusicPlayerViewModel,
 ) {
     Scaffold(
@@ -174,7 +180,7 @@ fun MainScreens(
                     MusicPlayerScreen(
                         modifier = Modifier.padding(innerPadding),
                         viewModel = viewModel,
-                        onTrackSelected = { context, track ->
+                        onTrackSelected = { track ->
                             onTrackSelected(true)
                             viewModel.setQueueToDefault()
                             viewModel.setMediaSourceWithService(track)
@@ -198,6 +204,38 @@ fun MainScreens(
                     viewModel = viewModel,
                 )
             }
+            AppDestinations.PLAYLISTS -> {
+                if (isPlaylistSelected) {
+                    if (isTrackSelected) {
+                        MusicInfoScreen(
+                            modifier = Modifier.padding(innerPadding),
+                            viewModel = viewModel,
+                            onBackClicked = { onTrackSelected(false) }
+                        )
+                    } else {
+                        PlaylistTracks(
+                            modifier = Modifier.padding(innerPadding),
+                            viewModel = viewModel,
+                            onTrackSelected = { track ->
+                                onTrackSelected(true)
+                                viewModel.currentQueue = viewModel.currentPlaylist.tracklist.toMutableList()
+                                viewModel.currentQueueIndex = viewModel.currentPlaylist.tracklist.indexOf(track)
+                                viewModel.setMediaSourceWithService(track)
+                            },
+                            onBackClicked = { onPlaylistSelected(false) }
+                        )
+                    }
+                } else {
+                    AllPlaylists(
+                        modifier = Modifier.padding(innerPadding),
+                        onPlaylistSelected = { playlist ->
+                            onPlaylistSelected(true)
+                            viewModel.currentPlaylist = playlist
+                        },
+                        allPlaylists = viewModel.allPlaylists,
+                    )
+                }
+            }
         }
     }
 }
@@ -215,8 +253,9 @@ enum class AppDestinations(
    val label: String,
    val icon: Int,
 ) {
-   HOME("Home", R.drawable.home),
-   SEARCH("Search", R.drawable.search),
-   SETTINGS("Settings", R.drawable.settings),
+    HOME("Home", R.drawable.home),
+    SEARCH("Search", R.drawable.search),
+    SETTINGS("Settings", R.drawable.settings),
+    PLAYLISTS("Playlists", R.drawable.data_table),
 }
 

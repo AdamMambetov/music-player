@@ -59,7 +59,6 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
     implementation(libs.lazycolumnscrollbar)
-    implementation("org.yaml:snakeyaml:2.5")
     testImplementation(libs.junit)
 
 

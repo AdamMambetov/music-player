@@ -9,12 +9,14 @@ import androidx.appsearch.annotation.Document.LongProperty
 import androidx.appsearch.annotation.Document.DocumentProperty
 import androidx.appsearch.annotation.Document.CreationTimestampMillis
 import androidx.appsearch.app.AppSearchSchema
+import androidx.compose.runtime.Stable
 import com.example.musicplayer.MusicPlayerSearchManager
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
 
+@Stable
 @Document
 data class TrackDocument(
     @CreationTimestampMillis
@@ -49,6 +51,8 @@ data class TrackDocument(
     var listenInSec: Int = 0,
     @StringProperty(indexingType = AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_NONE)
     var sourceUri: String = "",
+    @StringProperty(indexingType = AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_NONE)
+    val coverOf: String = "",
 ) {
     fun getCreatedDate(): Calendar {
         return Calendar
@@ -59,7 +63,7 @@ data class TrackDocument(
 
     fun getCreatedString(): String {
         return SimpleDateFormat(
-            "yyyy-MM-DD'T'HH:mm:ssXXX",
+            "yyyy-MM-dd'T'HH:mm:ssXXX",
             Locale.getDefault()
         ).format(getCreatedDate().time)
     }

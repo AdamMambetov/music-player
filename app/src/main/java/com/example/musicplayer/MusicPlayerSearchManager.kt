@@ -18,7 +18,7 @@ class MusicPlayerSearchManager(
     private val appContext: Context,
 ) {
     companion object {
-        const val DATABASE_NAME = "best_music_player"
+        const val DATABASE_NAME = "best_music_player1"
         const val NAMESPACE = "adam_music_player"
     }
 

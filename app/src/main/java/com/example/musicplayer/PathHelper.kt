@@ -5,11 +5,6 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Environment
 import androidx.core.content.edit
-import java.text.ParseException
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
 
 private const val SP_NAME = "music_player_prefs"
 private const val TRACKS_FOLDER_SP_KEY = "music_path"
@@ -57,26 +52,4 @@ fun getNotesFolderPath(context: Context): String {
 
 fun setNotesFolderPath(context: Context, path: String) {
     getSharedPreferences(context).edit { putString(NOTES_FOLDER_SP_KEY, path) }
-}
-
-fun getDateFromString(date: String): Calendar {
-    val date = try {
-        if (date.isNotEmpty()) {
-            SimpleDateFormat(
-                "yyyy-MM-dd HH:mm:ss",
-                Locale.getDefault()
-            ).parse(date)
-        } else {
-            Date()
-        }
-    } catch (_: ParseException) {
-        SimpleDateFormat(
-            "yyyy-MM-DD'T'HH:mm:ssZ",
-            Locale.getDefault()
-        ).parse(date)
-    }
-    return Calendar
-        .Builder()
-        .setInstant(date)
-        .build()
 }

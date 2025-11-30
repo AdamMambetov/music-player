@@ -7,12 +7,14 @@ import androidx.appsearch.annotation.Document.Namespace
 import androidx.appsearch.annotation.Document.Id
 import androidx.appsearch.annotation.Document.StringProperty
 import androidx.appsearch.app.AppSearchSchema
+import androidx.compose.runtime.Stable
 import com.example.musicplayer.MusicPlayerSearchManager
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
 
+@Stable
 @Document
 data class PlaylistDocument(
     @CreationTimestampMillis
@@ -24,7 +26,7 @@ data class PlaylistDocument(
     @StringProperty(indexingType = AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES)
     val upperAliases: List<String>,
     @DocumentProperty
-    val tracklist: List<TrackDocument>,
+    var tracklist: List<TrackDocument>,
     @StringProperty(indexingType = AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_NONE)
     val fileName: String,
     @Namespace
@@ -41,7 +43,7 @@ data class PlaylistDocument(
 
     fun getCreatedString(): String {
         return SimpleDateFormat(
-            "yyyy-MM-DD'T'HH:mm:ssZ",
+            "yyyy-MM-dd'T'HH:mm:ssZ",
             Locale.getDefault()
         ).format(getCreatedDate().time)
     }

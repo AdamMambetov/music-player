@@ -7,12 +7,14 @@ import androidx.appsearch.annotation.Document.Id
 import androidx.appsearch.annotation.Document.Score
 import androidx.appsearch.annotation.Document.StringProperty
 import androidx.appsearch.app.AppSearchSchema
+import androidx.compose.runtime.Stable
 import com.example.musicplayer.MusicPlayerSearchManager
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
 
+@Stable
 @Document
 data class CreatorDocument(
     @CreationTimestampMillis
@@ -41,7 +43,7 @@ data class CreatorDocument(
 
     fun getCreatedString(): String {
         return SimpleDateFormat(
-            "yyyy-MM-DD'T'HH:mm:ssZ",
+            "yyyy-MM-dd'T'HH:mm:ssZ",
             Locale.getDefault()
         ).format(getCreatedDate().time)
     }

@@ -16,6 +16,8 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.ui.PlayerNotificationManager
 import androidx.core.net.toUri
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
 
 @UnstableApi
 class MusicPlayerService : MediaSessionService() {
@@ -74,6 +76,16 @@ class MusicPlayerService : MediaSessionService() {
         
         mediaSession = MediaSession.Builder(this, exoPlayer!!)
             .setSessionActivity(sessionActivityPendingIntent)
+            .setCallback(object : MediaSession.Callback {
+                override fun onPlaybackResumption(
+                    mediaSession: MediaSession,
+                    controller: MediaSession.ControllerInfo
+                ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+
+                    return Futures.immediateFuture(MediaSession.MediaItemsWithStartPosition(listOf(
+                        mediaSession.player.currentMediaItem ?: MediaItem.fromUri("")), 0, 0))
+                }
+            })
             .build()
             
         // Ensure PlayerNotificationManager is properly set with the player only once

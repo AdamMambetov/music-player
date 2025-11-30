@@ -13,6 +13,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.musicplayer.data.TrackDocument
+import kotlin.collections.ifEmpty
+import kotlin.collections.joinToString
+import kotlin.text.ifEmpty
 
 @Composable
 fun SearchScreen(
@@ -49,16 +52,24 @@ fun SearchScreen(
 
         // Search results
         LazyColumn {
-            items(musicState.trackList) { music ->
+            items(musicState.trackList) { track ->
+                val aliases = track.aliases
+                    .getOrElse(0) { "Unknown Music" }
+                    .ifEmpty { "Unknown Music" }
+                val creators = track.creators
+                    .map { it.aliases.getOrElse(0) { "Unknow Artist" } }
+                    .ifEmpty { listOf("Unknow Artist") }
+                    .joinToString(", ")
+
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(8.dp)
-                        .clickable(onClick = { onTrackSelected(music) })
+                        .clickable(onClick = { onTrackSelected(track) })
                 ) {
-                    Text(text = music.aliases.toString())
-                    Text(text = music.creators.toString())
-                    Text(text = music.year.toString())
+                    Text(text = aliases)
+                    Text(text = creators)
+                    Text(text = track.year.toString())
                 }
             }
         }

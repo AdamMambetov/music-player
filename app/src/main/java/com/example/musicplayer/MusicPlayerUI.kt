@@ -1,7 +1,6 @@
 package com.example.musicplayer
 
 import android.annotation.SuppressLint
-import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -36,19 +37,18 @@ import androidx.compose.ui.unit.sp
 import com.example.musicplayer.data.TrackDocument
 import kotlinx.coroutines.launch
 import my.nanihadesuka.compose.LazyColumnScrollbar
+import kotlin.collections.ifEmpty
+import kotlin.collections.joinToString
+import kotlin.text.ifEmpty
 
 @Composable
 fun MusicPlayerScreen(
     modifier: Modifier,
     viewModel: MusicPlayerViewModel,
-    onTrackSelected: (Context, TrackDocument) -> Unit = { _, _ -> },
-    debugList: List<TrackDocument> = listOf(),
+    onTrackSelected: (TrackDocument) -> Unit = { _ -> },
+    trackList: List<TrackDocument> = remember { viewModel.allTracks }
 ) {
-    val context = LocalContext.current
-    val isPlaying = remember { viewModel.isPlaying }
-    val musicInfoList = remember { viewModel.allTracks }
     val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
 
     Box(modifier = modifier) {
         LazyColumnScrollbar(
@@ -59,174 +59,203 @@ fun MusicPlayerScreen(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
             ) {
-                items(if (debugList.isEmpty()) musicInfoList.size else debugList.size) { index ->
-                    val musicInfo = if (debugList.isEmpty())musicInfoList[index]
-                        else debugList[index]
-                    val name = musicInfo
-                        .aliases
-                        .getOrElse(0) { "Unknown Music" }
-                        .ifEmpty { "Unknown Music" }
-                    val artists = musicInfo
-                        .creators
-                        .map { it.aliases.getOrElse(0) { "Unknow Artist" } }
-                        .ifEmpty { listOf("Unknow Artist") }
-                        .joinToString(", ")
-                    val album = musicInfo
-                        .album
-                        .ifEmpty { "Unknown Album" }
-
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onTrackSelected(context, musicInfo)
-                            }
-                            .padding(horizontal = 5.dp)
-                            .padding(top = 5.dp),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    if (index == viewModel.currentQueueIndex) Color.LightGray
-                                    else Color.Gray
-                                )
-                                .padding(5.dp)
-                        ) {
-                            Text(
-                                text = name,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                lineHeight = 14.sp,
-                            )
-                            Text(
-                                text = artists,
-                                fontSize = 14.sp,
-                                lineHeight = 14.sp,
-                            )
-                            Text(
-                                text = album,
-                                fontSize = 14.sp,
-                                lineHeight = 14.sp,
-                            )
-                        }
-                    }
+                items(items = trackList, key = { it.id }) { trackInfo ->
+                    TrackListItem(
+                        trackInfo = trackInfo,
+                        viewModel = viewModel,
+                        onTrackSelected = onTrackSelected,
+                    )
                 }
             }
         }
 
+        BottomScrollControls(listState, viewModel, trackList)
 
-        // Bottom Scroll Controls
+        BottomPlayerControls(viewModel)
+    }
+}
+
+@Composable
+fun BottomPlayerControls(
+    viewModel: MusicPlayerViewModel,
+) {
+    val context = LocalContext.current
+
+    Column(
+        modifier = Modifier.fillMaxHeight(),
+        verticalArrangement = Arrangement.Bottom,
+    ) {
         Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(70.dp)
+                .background(Color.White),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier.padding(bottom = 75.dp, end = 5.dp)
+            IconButton(onClick = { viewModel.previousTrack() }) {
+                Icon(
+                    painter = painterResource(R.drawable.skip_previous),
+                    contentDescription = "Previous",
+                    modifier = Modifier.size(64.dp)
+                )
+            }
+
+            IconButton(
+                onClick = {
+                    if (viewModel.isPlaying) viewModel.pause()
+                    else viewModel.play(context)
+                }
             ) {
-                IconButton(
-                    onClick = { coroutineScope.launch { listState.scrollToItem(0) } },
-                    modifier = Modifier
-                        .padding(bottom = 10.dp)
-                        .background(
-                            color = Color.LightGray,
-                            shape = RoundedCornerShape(50)
-                        ),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.double_arrow_up),
-                        contentDescription = "Previous",
-                        modifier = Modifier.size(64.dp)
-                    )
-                }
-                IconButton(
-                    onClick = {
-                        if (viewModel.currentQueueIndex < 0)
-                            return@IconButton
-                        coroutineScope.launch {
-                            listState.scrollToItem(viewModel.currentQueueIndex)
-                        }
-                    },
-                    modifier = Modifier
-                        .padding(bottom = 10.dp)
-                        .background(
-                            color = Color.LightGray,
-                            shape = RoundedCornerShape(50)
-                        ),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.arrows_input),
-                        contentDescription = "Previous",
-                        modifier = Modifier.size(64.dp)
-                    )
-                }
-                IconButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            listState.scrollToItem(musicInfoList.lastIndex)
-                        }
-                    },
-                    modifier = Modifier
-                        .background(
-                            color = Color.LightGray,
-                            shape = RoundedCornerShape(50)
-                        ),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.double_arrow_down),
-                        contentDescription = "Previous",
-                        modifier = Modifier.size(64.dp)
-                    )
-                }
+                Icon(
+                    painter = painterResource(
+                        if (viewModel.isPlaying) R.drawable.pause
+                        else R.drawable.play_arrow
+                    ),
+                    contentDescription = if (viewModel.isPlaying) "Pause" else "Play",
+                    modifier = Modifier.size(64.dp)
+                )
+            }
+
+            IconButton(onClick = { viewModel.nextTrack() }) {
+                Icon(
+                    painter = painterResource(R.drawable.skip_next),
+                    contentDescription = "Next",
+                    modifier = Modifier.size(64.dp)
+                )
             }
         }
+    }
+}
 
-        // Bottom Player Controls
+@Composable
+fun TrackListItem(
+    trackInfo: TrackDocument,
+    viewModel: MusicPlayerViewModel,
+    onTrackSelected: (trackInfo: TrackDocument) -> Unit
+) {
+    val name = trackInfo
+        .aliases
+        .getOrElse(0) { "Unknown Music" }
+        .ifEmpty { "Unknown Music" }
+    val artists = trackInfo
+        .creators
+        .map { it.aliases.getOrElse(0) { "Unknow Artist" } }
+        .ifEmpty { listOf("Unknow Artist") }
+        .joinToString(", ")
+    val album = trackInfo
+        .album
+        .ifEmpty { "Unknown Album" }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                onTrackSelected(trackInfo)
+            }
+            .padding(horizontal = 5.dp)
+            .padding(top = 5.dp),
+        shape = RoundedCornerShape(10.dp)
+    ) {
         Column(
-            modifier = Modifier.fillMaxHeight(),
-            verticalArrangement = Arrangement.Bottom,
+            Modifier
+                .fillMaxWidth()
+                .background(
+                    if (trackInfo.id == viewModel.currentTrack.id) Color.LightGray
+                    else Color.Gray
+                )
+                .padding(5.dp)
         ) {
-            Row(
+            Text(
+                text = name,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                lineHeight = 14.sp,
+            )
+            Text(
+                text = artists,
+                fontSize = 14.sp,
+                lineHeight = 14.sp,
+            )
+            Text(
+                text = album,
+                fontSize = 14.sp,
+                lineHeight = 14.sp,
+            )
+        }
+    }
+}
+
+@Composable
+fun BottomScrollControls(
+    listState: LazyListState,
+    viewModel: MusicPlayerViewModel,
+    trackList: List<TrackDocument>
+) {
+    val coroutineScope = rememberCoroutineScope()
+
+    Row(
+        modifier = Modifier.fillMaxSize(),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        Column(
+            modifier = Modifier.padding(bottom = 75.dp, end = 5.dp)
+        ) {
+            IconButton(
+                onClick = { coroutineScope.launch { listState.scrollToItem(0) } },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(70.dp)
-                    .background(Color.White),
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(bottom = 10.dp)
+                    .background(
+                        color = Color.LightGray,
+                        shape = RoundedCornerShape(50)
+                    ),
             ) {
-                IconButton(onClick = { viewModel.previousTrack() }) {
-                    Icon(
-                        painter = painterResource(R.drawable.skip_previous),
-                        contentDescription = "Previous",
-                        modifier = Modifier.size(64.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = {
-                        if (isPlaying) viewModel.pause()
-                        else viewModel.play(context)
+                Icon(
+                    painter = painterResource(R.drawable.double_arrow_up),
+                    contentDescription = "Previous",
+                    modifier = Modifier.size(64.dp)
+                )
+            }
+            IconButton(
+                onClick = {
+                    val trackIndex = trackList.indexOfFirst { it.id == viewModel.currentTrack.id }
+                    if (trackIndex == -1)
+                        return@IconButton
+                    coroutineScope.launch {
+                        listState.scrollToItem(trackIndex)
                     }
-                ) {
-                    Icon(
-                        painter = painterResource(
-                            if (isPlaying) R.drawable.pause
-                            else R.drawable.play_arrow
-                        ),
-                        contentDescription = if (isPlaying) "Pause" else "Play",
-                        modifier = Modifier.size(64.dp)
-                    )
-                }
-
-                IconButton(onClick = { viewModel.nextTrack() }) {
-                    Icon(
-                        painter = painterResource(R.drawable.skip_next),
-                        contentDescription = "Next",
-                        modifier = Modifier.size(64.dp)
-                    )
-                }
+                },
+                modifier = Modifier
+                    .padding(bottom = 10.dp)
+                    .background(
+                        color = Color.LightGray,
+                        shape = RoundedCornerShape(50)
+                    ),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.arrows_input),
+                    contentDescription = "Previous",
+                    modifier = Modifier.size(64.dp)
+                )
+            }
+            IconButton(
+                onClick = {
+                    coroutineScope.launch {
+                        listState.scrollToItem(trackList.lastIndex)
+                    }
+                },
+                modifier = Modifier
+                    .background(
+                        color = Color.LightGray,
+                        shape = RoundedCornerShape(50)
+                    ),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.double_arrow_down),
+                    contentDescription = "Previous",
+                    modifier = Modifier.size(64.dp)
+                )
             }
         }
     }
@@ -241,7 +270,7 @@ fun MusicPlayerScreenPreview() {
             MusicPlayerSearchManager(LocalContext.current)
         ),
         modifier = Modifier,
-        debugList = listOf(
+        trackList = listOf(
             TrackDocument.createEmpty(),
             TrackDocument.createEmpty(),
             TrackDocument.createEmpty(),

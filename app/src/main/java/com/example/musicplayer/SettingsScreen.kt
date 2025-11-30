@@ -132,9 +132,16 @@ fun SettingsScreen(
 
         Button(
             modifier = Modifier.fillMaxWidth(),
-            onClick = { viewModel.scanAll(context) },
+            onClick = { viewModel.scanAll(context, true) },
         ) {
-            Text("Rescan")
+            Text(text = "Clean Index and Rescan")
+        }
+
+        Button(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { viewModel.scanAll(context, false) },
+        ) {
+            Text(text = "Rescan")
         }
     }
 }
@@ -226,7 +233,7 @@ fun SettingItemWithButton(
 }
 
 @SuppressLint("ViewModelConstructorInComposable")
-@Preview
+@Preview(showBackground = true)
 @Composable
 fun SettingsScreenPreview() {
     // Create a mock launcher that doesn't actually launch anything for preview
