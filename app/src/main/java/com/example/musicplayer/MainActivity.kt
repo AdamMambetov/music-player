@@ -11,12 +11,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.annotation.OptIn
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
@@ -156,12 +158,22 @@ fun MainScreens(
         topBar = {
             TopAppBar(
                 title = {
-                    IconButton(onClick = onTopBarClicked) {
-                        Icon(
-                            painter = painterResource(R.drawable.view_headline),
-                            contentDescription = "Show Navigation Rail",
-                            modifier = Modifier.size(64.dp)
-                        )
+                    val isScan = viewModel.isScan
+
+                    Row {
+                        IconButton(onClick = onTopBarClicked) {
+                            Icon(
+                                painter = painterResource(R.drawable.view_headline),
+                                contentDescription = "Show Navigation Rail",
+                                modifier = Modifier.size(64.dp)
+                            )
+                        }
+                        if (isScan)
+                            LinearProgressIndicator(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(20.dp),
+                            )
                     }
                 }
             )

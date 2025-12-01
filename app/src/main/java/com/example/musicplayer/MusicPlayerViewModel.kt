@@ -45,6 +45,9 @@ class MusicPlayerViewModel(
     var isFavorite by mutableStateOf(false)
         private set
 
+    var isScan by mutableStateOf(false)
+        private set
+
     var currentPosition by mutableLongStateOf(0L)
         private set
 
@@ -111,7 +114,10 @@ class MusicPlayerViewModel(
 //        _mediaController?.release()
         _exoPlayer?.release()
         searchJob?.cancel()
+        searchJob = null
         scanJob?.cancel()
+        scanJob = null
+        isScan = false
         searchManager.closeSession()
         super.onCleared()
     }
@@ -213,6 +219,7 @@ class MusicPlayerViewModel(
         Log.d("TAG", "Rescan start")
         scanJob?.cancel()
         scanJob = viewModelScope.launch(context = Dispatchers.IO) {
+            isScan = true
             val markdownReader = MarkdownReader()
             if (clearCache) {
                 searchManager.removeTracks(searchManager.searchAllTracks())
@@ -239,7 +246,10 @@ class MusicPlayerViewModel(
             allCreators.addAll(creators)
             Log.d("TAG", "Finish scan creators from markdown")
 
-            var tracks = markdownReader.scanTracks(context, allCreators).toMutableList()
+            var tracks = markdownReader
+                .scanTracks(context, allCreators)
+                .sortedByDescending { it.created }
+                .toMutableList()
             Log.d("TAG", "Finish scan tracks from markdown")
 
             for (i in 0..<tracks.size) {
@@ -288,6 +298,7 @@ class MusicPlayerViewModel(
             } ?: favorites
             Log.d("TAG", "Finish scan playlists from markdown")
             Log.d("TAG", "Rescan end")
+            isScan = false
         }
     }
 
@@ -338,7 +349,9 @@ class MusicPlayerViewModel(
     }
 
     fun loadAllFromCache() {
-        viewModelScope.launch(context = Dispatchers.IO) {
+        scanJob?.cancel()
+        scanJob = viewModelScope.launch(context = Dispatchers.IO) {
+            isScan = true
             allCreators.clear()
             allCreators.addAll(searchManager.searchAllCreators())
             Log.d("TAG", "Finish scan creators from cache ${allCreators.size}")
@@ -351,6 +364,7 @@ class MusicPlayerViewModel(
                 it.aliases.getOrElse(0) { false } == "Favorites"
             } ?: favorites
             Log.d("TAG", "Finish scan playlists from cache ${allPlaylists.size} ${favorites.tracklist.size}")
+            isScan = false
         }
     }
 
