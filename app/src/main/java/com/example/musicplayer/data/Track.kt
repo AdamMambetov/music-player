@@ -54,6 +54,34 @@ data class TrackDocument(
     @StringProperty(indexingType = AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_NONE)
     val coverOf: String = "",
 ) {
+    override fun equals(other: Any?): Boolean {
+        if (other !is TrackDocument)
+            return false
+        return other.id == id || other.fileName == fileName
+    }
+
+    override fun hashCode(): Int {
+        var result = created.hashCode()
+        result = 31 * result + year.hashCode()
+        result = 31 * result + numberInAlbum.hashCode()
+        result = 31 * result + listenInSec
+        result = 31 * result + aliases.hashCode()
+        result = 31 * result + lowerAliases.hashCode()
+        result = 31 * result + upperAliases.hashCode()
+        result = 31 * result + cover.hashCode()
+        result = 31 * result + album.hashCode()
+        result = 31 * result + creators.hashCode()
+        result = 31 * result + related.hashCode()
+        result = 31 * result + sourceFile.hashCode()
+        result = 31 * result + fileName.hashCode()
+        result = 31 * result + namespace.hashCode()
+        result = 31 * result + id.hashCode()
+        result = 31 * result + sourceUri.hashCode()
+        result = 31 * result + coverOf.hashCode()
+        return result
+    }
+
+
     fun getCreatedDate(): Calendar {
         return Calendar
             .Builder()

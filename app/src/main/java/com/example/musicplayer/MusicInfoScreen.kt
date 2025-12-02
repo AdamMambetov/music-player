@@ -82,7 +82,7 @@ fun MusicInfoScreen(
         AddToPlaylistDialog(
             onExitRequest = { showAddToPlaylistDialog = false },
             onPlaylistChecked = { checked, playlist ->
-                if (playlist.fileName == viewModel.favorites.fileName) {
+                if (playlist == viewModel.favorites) {
                     viewModel.changeTrackFavoriteState(context, viewModel.currentTrack)
                     return@AddToPlaylistDialog
                 }
@@ -92,7 +92,7 @@ fun MusicInfoScreen(
                 if (checked)
                     list.add(viewModel.currentTrack)
                 else
-                    list.removeIf { it.fileName == viewModel.currentTrack.fileName }
+                    list.removeIf { it == viewModel.currentTrack }
                 Log.d("TAG", "onPlaylistChecked list size ${list.size}")
                 viewModel.savePlaylist(context, playlist.copy(tracklist = list))
             },
@@ -263,7 +263,7 @@ fun AddToPlaylistDialog(
     allPlaylists: List<PlaylistDocument>,
 ) {
     val playlistCheckedList = allPlaylists.map { playlist ->
-        playlist.tracklist.find { it.fileName == track.fileName } != null
+        playlist.tracklist.find { it == track } != null
     }.toMutableStateList()
 
     Dialog(onDismissRequest = onExitRequest) {
@@ -336,7 +336,7 @@ fun AddToPlaylistDialog(
 fun MusicInfoScreenPreview() {
     MusicInfoScreen(
         viewModel = MusicPlayerViewModel(
-            MusicPlayerSearchManager(LocalContext.current)
+            searchManager = MusicPlayerSearchManager(LocalContext.current)
         ),
     )
 }

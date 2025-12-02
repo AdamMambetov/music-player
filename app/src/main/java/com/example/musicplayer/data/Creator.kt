@@ -19,12 +19,12 @@ import java.util.UUID
 data class CreatorDocument(
     @CreationTimestampMillis
     val created: Long,
+    @StringProperty
+    val aliases: List<String>,
     @StringProperty(indexingType = AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES)
     val lowerAliases: List<String>,
     @StringProperty(indexingType = AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES)
     val upperAliases: List<String>,
-    @StringProperty
-    val aliases: List<String>,
     @StringProperty(indexingType = AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_NONE)
     val fileName: String,
     @Namespace
@@ -34,6 +34,25 @@ data class CreatorDocument(
     @Score
     var listenInSec: Int = 0,
 ) {
+    override fun equals(other: Any?): Boolean {
+        if (other !is CreatorDocument)
+            return false
+        return other.id == id || other.fileName == fileName
+    }
+
+    override fun hashCode(): Int {
+        var result = created.hashCode()
+        result = 31 * result + aliases.hashCode()
+        result = 31 * result + lowerAliases.hashCode()
+        result = 31 * result + upperAliases.hashCode()
+        result = 31 * result + fileName.hashCode()
+        result = 31 * result + namespace.hashCode()
+        result = 31 * result + id.hashCode()
+        result = 31 * result + listenInSec.hashCode()
+        return result
+    }
+
+
     fun getCreatedDate(): Calendar {
         return Calendar
             .Builder()

@@ -161,7 +161,7 @@ fun TrackListItem(
             Modifier
                 .fillMaxWidth()
                 .background(
-                    if (trackInfo.id == viewModel.currentTrack.id) Color.LightGray
+                    if (trackInfo == viewModel.currentTrack) Color.LightGray
                     else Color.Gray
                 )
                 .padding(5.dp)
@@ -219,7 +219,7 @@ fun BottomScrollControls(
             }
             IconButton(
                 onClick = {
-                    val trackIndex = trackList.indexOfFirst { it.id == viewModel.currentTrack.id }
+                    val trackIndex = trackList.indexOfFirst { it == viewModel.currentTrack }
                     if (trackIndex == -1)
                         return@IconButton
                     coroutineScope.launch {
@@ -267,7 +267,7 @@ fun BottomScrollControls(
 fun MusicPlayerScreenPreview() {
     MusicPlayerScreen(
         viewModel = MusicPlayerViewModel(
-            MusicPlayerSearchManager(LocalContext.current)
+            searchManager = MusicPlayerSearchManager(LocalContext.current)
         ),
         modifier = Modifier,
         trackList = listOf(

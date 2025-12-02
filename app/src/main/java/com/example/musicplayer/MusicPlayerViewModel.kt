@@ -34,6 +34,7 @@ import kotlinx.coroutines.Job
 import kotlin.random.Random
 
 class MusicPlayerViewModel(
+    context: Context? = null,
     val searchManager: MusicPlayerSearchManager
 ) : ViewModel() {
     var isPlaying by mutableStateOf(false)
@@ -106,7 +107,8 @@ class MusicPlayerViewModel(
     init {
         viewModelScope.launch {
             searchManager.init()
-            loadAllFromCache()
+            if (context != null)
+                loadAllFromCache(context)
         }
     }
 
@@ -235,7 +237,7 @@ class MusicPlayerViewModel(
             val creators = markdownReader.scanCreators(context).toMutableList()
 
             for (i in 0..<creators.size) {
-                val oldCreator = allCreators.find { it.fileName == creators[i].fileName }
+                val oldCreator = allCreators.find { it == creators[i] }
                 if (oldCreator == null)
                     continue
                 creators[i] = creators[i].copy(id = oldCreator.id)
@@ -253,7 +255,7 @@ class MusicPlayerViewModel(
             Log.d("TAG", "Finish scan tracks from markdown")
 
             for (i in 0..<tracks.size) {
-                val oldTrack = allTracks.find { it.fileName == tracks[i].fileName }
+                val oldTrack = allTracks.find { it == tracks[i] }
                 if (oldTrack == null)
                     continue
                 tracks[i] = tracks[i].copy(id = oldTrack.id)
@@ -270,7 +272,7 @@ class MusicPlayerViewModel(
             val albums = markdownReader.scanAlbums(context, allCreators, allTracks).toMutableList()
 
             for (i in 0..<albums.size) {
-                val oldAlbum = allAlbums.find { it.fileName == albums[i].fileName }
+                val oldAlbum = allAlbums.find { it == albums[i] }
                 if (oldAlbum == null)
                     continue
                 albums[i] = albums[i].copy(id = oldAlbum.id)
@@ -284,7 +286,7 @@ class MusicPlayerViewModel(
             val playlists = markdownReader.scanPlaylists(context, allTracks).toMutableList()
 
             for (i in 0..<playlists.size) {
-                val oldPlaylist = allPlaylists.find { it.fileName == playlists[i].fileName }
+                val oldPlaylist = allPlaylists.find { it == playlists[i] }
                 if (oldPlaylist == null)
                     continue
                 playlists[i] = playlists[i].copy(id = oldPlaylist.id)
@@ -348,20 +350,27 @@ class MusicPlayerViewModel(
         return tracks
     }
 
-    fun loadAllFromCache() {
+    fun loadAllFromCache(context: Context) {
         scanJob?.cancel()
         scanJob = viewModelScope.launch(context = Dispatchers.IO) {
             isScan = true
             allCreators.clear()
             allCreators.addAll(searchManager.searchAllCreators())
             Log.d("TAG", "Finish scan creators from cache ${allCreators.size}")
+
             allTracks.clear()
-            allTracks.addAll(searchManager.searchAllTracks())
+            val tracks = searchManager.searchAllTracks()
+            allTracks.addAll(scanSourceTracks(context, tracks))
             Log.d("TAG", "Finish scan tracks from cache ${allTracks.size}")
+
+            allAlbums.clear()
+            allAlbums.addAll(searchManager.searchAllAlbums())
+            Log.d("TAG", "Finish scan albums from cache ${allAlbums.size}")
+
             allPlaylists.clear()
             allPlaylists.addAll(searchManager.searchAllPlaylists())
             favorites = allPlaylists.find {
-                it.aliases.getOrElse(0) { false } == "Favorites"
+                it.aliases.getOrElse(0) { "" } == "Favorites"
             } ?: favorites
             Log.d("TAG", "Finish scan playlists from cache ${allPlaylists.size} ${favorites.tracklist.size}")
             isScan = false
@@ -372,7 +381,7 @@ class MusicPlayerViewModel(
         if (track.id != currentTrack.id) {
             Log.d("TAG", "Source Uri: ${track.sourceUri}")
             currentTrack = track
-            isFavorite = favorites.tracklist.find { it.id == track.id } != null
+            isFavorite = favorites.tracklist.find { it == track } != null
             currentQueueIndex = currentQueue.indexOf(currentTrack)
             if (isShuffle) {
                 randomQueueIndex = randomQueue.indexOf(currentTrack)
@@ -511,7 +520,7 @@ class MusicPlayerViewModel(
 
     fun savePlaylist(context: Context, playlist: PlaylistDocument) {
         Log.d("TAG", "savePlaylist ${playlist.fileName} - ${playlist.tracklist.size}")
-        val index = allPlaylists.indexOfFirst { it.fileName == playlist.fileName }
+        val index = allPlaylists.indexOfFirst { it == playlist }
         if (index == -1)
             return
         allPlaylists[index] = playlist.copy(id = allPlaylists[index].id)

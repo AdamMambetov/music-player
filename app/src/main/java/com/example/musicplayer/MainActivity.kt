@@ -52,7 +52,8 @@ class MainActivity : ComponentActivity() {
             object : ViewModelProvider.Factory {
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     return MusicPlayerViewModel(
-                        MusicPlayerSearchManager(applicationContext)
+                        context = applicationContext,
+                        searchManager = MusicPlayerSearchManager(applicationContext)
                     ) as T
                 }
             }
@@ -201,14 +202,23 @@ fun MainScreens(
                 }
             }
             AppDestinations.SEARCH -> {
-                SearchScreen(
-                    modifier = Modifier.padding(innerPadding),
-                    viewModel = viewModel,
-                    onTrackSelected = { track ->
-                        onTrackSelected(true)
-                        viewModel.setMediaSourceWithService(track)
-                    }
-                )
+                if (isTrackSelected) {
+                    // Show music info screen for selected track
+                    MusicInfoScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        viewModel = viewModel,
+                        onBackClicked = { onTrackSelected(false) }
+                    )
+                } else {
+                    SearchScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        viewModel = viewModel,
+                        onTrackSelected = { track ->
+                            onTrackSelected(true)
+                            viewModel.setMediaSourceWithService(track)
+                        }
+                    )
+                }
             }
             AppDestinations.SETTINGS -> {
                 SettingsScreen(
@@ -257,7 +267,7 @@ fun MainScreens(
 @PreviewScreenSizes
 fun MusicPlayerAppPreview() {
     MusicPlayerApp(MusicPlayerViewModel(
-        MusicPlayerSearchManager(LocalContext.current)
+        searchManager = MusicPlayerSearchManager(LocalContext.current)
     ))
 }
 

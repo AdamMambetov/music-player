@@ -251,8 +251,8 @@ class MarkdownReader {
             aliases = aliases,
             lowerAliases = aliases.map { it.lowercase() },
             upperAliases = aliases.map { it.uppercase() },
-            listenInSec = yamlData[LISTEN_IN_SEC_KEY]?.toIntOrNull() ?: 0,
             fileName = filename.removeSuffix(".md"),
+            listenInSec = yamlData[LISTEN_IN_SEC_KEY]?.toIntOrNull() ?: 0,
         )
     }
 

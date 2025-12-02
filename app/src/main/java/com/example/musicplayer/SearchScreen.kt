@@ -20,7 +20,7 @@ import kotlin.text.ifEmpty
 @Composable
 fun SearchScreen(
     modifier: Modifier = Modifier,
-    onTrackSelected: (TrackDocument) -> Unit = { _ -> },
+    onTrackSelected: (TrackDocument) -> Unit,
     viewModel: MusicPlayerViewModel,
 ) {
     val musicState = viewModel.musicState
@@ -82,7 +82,8 @@ fun SearchScreen(
 fun SearchScreenPreview() {
     SearchScreen(
         viewModel = MusicPlayerViewModel(
-            MusicPlayerSearchManager(LocalContext.current)
+            searchManager = MusicPlayerSearchManager(LocalContext.current)
         ),
+        onTrackSelected = {},
     )
 }

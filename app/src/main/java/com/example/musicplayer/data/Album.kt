@@ -41,6 +41,28 @@ data class AlbumDocument(
     @Id
     val id: String = UUID.randomUUID().toString(),
 ) {
+    override fun equals(other: Any?): Boolean {
+        if (other !is AlbumDocument)
+            return false
+        return other.id == id || other.fileName == fileName
+    }
+
+    override fun hashCode(): Int {
+        var result = created.hashCode()
+        result = 31 * result + year.hashCode()
+        result = 31 * result + aliases.hashCode()
+        result = 31 * result + lowerAliases.hashCode()
+        result = 31 * result + upperAliases.hashCode()
+        result = 31 * result + cover.hashCode()
+        result = 31 * result + creators.hashCode()
+        result = 31 * result + tracklist.hashCode()
+        result = 31 * result + fileName.hashCode()
+        result = 31 * result + namespace.hashCode()
+        result = 31 * result + id.hashCode()
+        return result
+    }
+
+
     fun getCreatedDate(): Calendar {
         return Calendar
             .Builder()

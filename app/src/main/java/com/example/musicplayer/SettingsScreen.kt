@@ -238,6 +238,6 @@ fun SettingItemWithButton(
 fun SettingsScreenPreview() {
     // Create a mock launcher that doesn't actually launch anything for preview
     SettingsScreen(viewModel = MusicPlayerViewModel(
-        MusicPlayerSearchManager(LocalContext.current)
+        searchManager = MusicPlayerSearchManager(LocalContext.current)
     ))
 }
