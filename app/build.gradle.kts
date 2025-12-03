@@ -59,6 +59,7 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
     implementation(libs.lazycolumnscrollbar)
+    implementation("io.coil-kt.coil3:coil-compose:3.0.0")
     testImplementation(libs.junit)
 
 

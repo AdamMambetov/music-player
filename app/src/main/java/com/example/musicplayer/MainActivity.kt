@@ -11,6 +11,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.annotation.OptIn
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -40,6 +42,12 @@ import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.media3.common.util.UnstableApi
+import com.example.musicplayer.ui.screen.AllPlaylists
+import com.example.musicplayer.ui.screen.MusicInfoScreen
+import com.example.musicplayer.ui.screen.MusicPlayerScreen
+import com.example.musicplayer.ui.screen.PlaylistTracks
+import com.example.musicplayer.ui.screen.SearchScreen
+import com.example.musicplayer.ui.screen.SettingsScreen
 
 class MainActivity : ComponentActivity() {
     // Permission request launcher for full storage access (MANAGE_EXTERNAL_STORAGE)
@@ -74,7 +82,7 @@ class MainActivity : ComponentActivity() {
             MusicPlayerTheme {
                 LaunchedEffect(key1 = Unit) {
                     requestStoragePermissions()
-                    viewModel.initializePlayer(this@MainActivity)
+                    viewModel.initializePlayer()
                 }
                 MusicPlayerApp(viewModel = viewModel)
             }
@@ -156,106 +164,111 @@ fun MainScreens(
 ) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        topBar = {
-            TopAppBar(
-                title = {
-                    val isScan = viewModel.isScan
+        topBar = { TopAppBar(
+            title = {
+                val isScan = viewModel.isScan
 
-                    Row {
-                        IconButton(onClick = onTopBarClicked) {
-                            Icon(
-                                painter = painterResource(R.drawable.view_headline),
-                                contentDescription = "Show Navigation Rail",
-                                modifier = Modifier.size(64.dp)
-                            )
-                        }
-                        if (isScan)
-                            LinearProgressIndicator(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(20.dp),
-                            )
+                Row {
+                    IconButton(onClick = onTopBarClicked) {
+                        Icon(
+                            painter = painterResource(R.drawable.view_headline),
+                            contentDescription = "Show Navigation Rail",
+                            modifier = Modifier.size(64.dp)
+                        )
+                    }
+                    AnimatedVisibility(isScan) {
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(20.dp),
+                        )
                     }
                 }
-            )
-        }
+            },
+        )}
     ) { innerPadding ->
-        when (currentDestination) {
-            AppDestinations.HOME -> {
-                if (isTrackSelected) {
-                    // Show music info screen for selected track
-                    MusicInfoScreen(
-                        modifier = Modifier.padding(innerPadding),
-                        viewModel = viewModel,
-                        onBackClicked = { onTrackSelected(false) }
-                    )
-                } else {
-                    MusicPlayerScreen(
-                        modifier = Modifier.padding(innerPadding),
-                        viewModel = viewModel,
-                        onTrackSelected = { track ->
-                            onTrackSelected(true)
-                            viewModel.setQueueToDefault()
-                            viewModel.setMediaSourceWithService(track)
-                        }
-                    )
-                }
-            }
-            AppDestinations.SEARCH -> {
-                if (isTrackSelected) {
-                    // Show music info screen for selected track
-                    MusicInfoScreen(
-                        modifier = Modifier.padding(innerPadding),
-                        viewModel = viewModel,
-                        onBackClicked = { onTrackSelected(false) }
-                    )
-                } else {
-                    SearchScreen(
-                        modifier = Modifier.padding(innerPadding),
-                        viewModel = viewModel,
-                        onTrackSelected = { track ->
-                            onTrackSelected(true)
-                            viewModel.setMediaSourceWithService(track)
-                        }
-                    )
-                }
-            }
-            AppDestinations.SETTINGS -> {
-                SettingsScreen(
-                    modifier = Modifier.padding(innerPadding),
-                    viewModel = viewModel,
-                )
-            }
-            AppDestinations.PLAYLISTS -> {
-                if (isPlaylistSelected) {
+        AnimatedContent(
+            targetState = currentDestination
+        ) { targetState ->
+            when (targetState) {
+                AppDestinations.HOME -> {
                     if (isTrackSelected) {
+                        // Show music info screen for selected track
                         MusicInfoScreen(
                             modifier = Modifier.padding(innerPadding),
                             viewModel = viewModel,
                             onBackClicked = { onTrackSelected(false) }
                         )
                     } else {
-                        PlaylistTracks(
+                        MusicPlayerScreen(
                             modifier = Modifier.padding(innerPadding),
                             viewModel = viewModel,
                             onTrackSelected = { track ->
                                 onTrackSelected(true)
-                                viewModel.currentQueue = viewModel.currentPlaylist.tracklist.toMutableList()
-                                viewModel.currentQueueIndex = viewModel.currentPlaylist.tracklist.indexOf(track)
+                                viewModel.setQueueToDefault()
                                 viewModel.setMediaSourceWithService(track)
-                            },
-                            onBackClicked = { onPlaylistSelected(false) }
+                            }
                         )
                     }
-                } else {
-                    AllPlaylists(
+                }
+                AppDestinations.SEARCH -> {
+                    if (isTrackSelected) {
+                        // Show music info screen for selected track
+                        MusicInfoScreen(
+                            modifier = Modifier.padding(innerPadding),
+                            viewModel = viewModel,
+                            onBackClicked = { onTrackSelected(false) }
+                        )
+                    } else {
+                        SearchScreen(
+                            modifier = Modifier.padding(innerPadding),
+                            viewModel = viewModel,
+                            onTrackSelected = { track ->
+                                onTrackSelected(true)
+                                viewModel.setMediaSourceWithService(track)
+                            }
+                        )
+                    }
+                }
+                AppDestinations.SETTINGS -> {
+                    SettingsScreen(
                         modifier = Modifier.padding(innerPadding),
-                        onPlaylistSelected = { playlist ->
-                            onPlaylistSelected(true)
-                            viewModel.currentPlaylist = playlist
-                        },
-                        allPlaylists = viewModel.allPlaylists,
+                        viewModel = viewModel,
                     )
+                }
+                AppDestinations.PLAYLISTS -> {
+                    if (isPlaylistSelected) {
+                        if (isTrackSelected) {
+                            MusicInfoScreen(
+                                modifier = Modifier.padding(innerPadding),
+                                viewModel = viewModel,
+                                onBackClicked = { onTrackSelected(false) }
+                            )
+                        } else {
+                            PlaylistTracks(
+                                modifier = Modifier.padding(innerPadding),
+                                viewModel = viewModel,
+                                onTrackSelected = { track ->
+                                    onTrackSelected(true)
+                                    viewModel.currentQueue =
+                                        viewModel.currentPlaylist.tracklist.toMutableList()
+                                    viewModel.currentQueueIndex =
+                                        viewModel.currentPlaylist.tracklist.indexOf(track)
+                                    viewModel.setMediaSourceWithService(track)
+                                },
+                                onBackClicked = { onPlaylistSelected(false) }
+                            )
+                        }
+                    } else {
+                        AllPlaylists(
+                            modifier = Modifier.padding(innerPadding),
+                            onPlaylistSelected = { playlist ->
+                                onPlaylistSelected(true)
+                                viewModel.currentPlaylist = playlist
+                            },
+                            allPlaylists = viewModel.allPlaylists,
+                        )
+                    }
                 }
             }
         }
@@ -267,6 +280,7 @@ fun MainScreens(
 @PreviewScreenSizes
 fun MusicPlayerAppPreview() {
     MusicPlayerApp(MusicPlayerViewModel(
+        context = LocalContext.current,
         searchManager = MusicPlayerSearchManager(LocalContext.current)
     ))
 }

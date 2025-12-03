@@ -1,4 +1,4 @@
-package com.example.musicplayer
+package com.example.musicplayer.ui.screen
 
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -17,6 +17,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import com.example.musicplayer.MusicPlayerSearchManager
+import com.example.musicplayer.MusicPlayerViewModel
+import com.example.musicplayer.R
 
 private const val EMPTY_PATH = "Not set"
 
@@ -29,23 +32,26 @@ fun SettingsScreen(
     var notePath by remember { mutableStateOf(EMPTY_PATH) }
     var musicPath by remember { mutableStateOf(EMPTY_PATH) }
     var fullStorageAccessGranted by remember { mutableStateOf(false) }
+    val pathHelper = viewModel.pathHelper
     
     // Check current permission status when the screen loads
     LaunchedEffect(key1 = Unit) {
         fullStorageAccessGranted = Environment.isExternalStorageManager()
-        val storedNotePath = getNotesFolderPath(context)
+
+        val storedNotePath = pathHelper.getNotesFolderPath()
         notePath = if (storedNotePath.isEmpty()) EMPTY_PATH
-            else getPathFromUri(storedNotePath.toUri())
-        val storedMusicPath = getTracksFolderPath(context)
+            else pathHelper.getPathFromUri(uri = storedNotePath.toUri())
+
+        val storedMusicPath = pathHelper.getTracksFolderPath()
         musicPath = if (storedMusicPath.isEmpty()) EMPTY_PATH
-            else getPathFromUri(storedMusicPath.toUri())
+            else pathHelper.getPathFromUri(uri = storedMusicPath.toUri())
     }
 
     // Launchers for directory picking
     val notePathLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
-        val path = getPathFromUri(uri)
+        val path = pathHelper.getPathFromUri(uri = uri)
         if (path.isNotEmpty()) {
             // Take URI permission to persist access across app restarts
             try {
@@ -58,8 +64,8 @@ fun SettingsScreen(
             } catch (e: SecurityException) {
                 Log.e("SettingsScreen", "Failed to take URI permission: ${e.message}")
             }
-            
-            setNotesFolderPath(context, uri.toString())
+
+            pathHelper.setNotesFolderPath(path = uri.toString())
             notePath = path
         }
     }
@@ -67,7 +73,7 @@ fun SettingsScreen(
     val trackPathLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
-        val path = getPathFromUri(uri)
+        val path = pathHelper.getPathFromUri(uri = uri)
         if (path.isNotEmpty()) {
             // Take URI permission to persist access across app restarts
             try {
@@ -78,8 +84,8 @@ fun SettingsScreen(
             } catch (e: SecurityException) {
                 Log.e("SettingsScreen", "Failed to take URI permission: ${e.message}")
             }
-            
-            setTracksFolderPath(context, uri.toString())
+
+            pathHelper.setTracksFolderPath(path = uri.toString())
             musicPath = path
         }
     }
@@ -103,7 +109,9 @@ fun SettingsScreen(
             buttonLabel = if (fullStorageAccessGranted) "Granted" else "Request",
             onButtonClick = {
                 // For Android 11+, request full storage access
-                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                ).apply {
                     data = "package:${context.packageName}".toUri()
                 }
                 fullStorageAccessLauncher.launch(intent)
@@ -132,14 +140,14 @@ fun SettingsScreen(
 
         Button(
             modifier = Modifier.fillMaxWidth(),
-            onClick = { viewModel.scanAll(context, true) },
+            onClick = { viewModel.scanAll(true) },
         ) {
             Text(text = "Clean Index and Rescan")
         }
 
         Button(
             modifier = Modifier.fillMaxWidth(),
-            onClick = { viewModel.scanAll(context, false) },
+            onClick = { viewModel.scanAll(false) },
         ) {
             Text(text = "Rescan")
         }
@@ -238,6 +246,8 @@ fun SettingItemWithButton(
 fun SettingsScreenPreview() {
     // Create a mock launcher that doesn't actually launch anything for preview
     SettingsScreen(viewModel = MusicPlayerViewModel(
-        searchManager = MusicPlayerSearchManager(LocalContext.current)
-    ))
+        context = LocalContext.current,
+        searchManager = MusicPlayerSearchManager(LocalContext.current),
+    )
+    )
 }

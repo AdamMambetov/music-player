@@ -1,4 +1,4 @@
-package com.example.musicplayer
+package com.example.musicplayer.ui.screen
 
 import android.annotation.SuppressLint
 import android.util.Log
@@ -39,6 +39,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import coil3.compose.AsyncImage
+import com.example.musicplayer.MusicPlayerSearchManager
+import com.example.musicplayer.MusicPlayerViewModel
+import com.example.musicplayer.R
 import com.example.musicplayer.data.PlaylistDocument
 import com.example.musicplayer.data.TrackDocument
 
@@ -53,37 +57,41 @@ fun MusicInfoScreen(
     val isFavorite = viewModel.isFavorite
     val currentPosition = viewModel.currentPosition
     val duration = viewModel.duration
-    val context = LocalContext.current
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
     
     LaunchedEffect(key1 = Unit) {
         if (!isPlaying) {
-            viewModel.play(context)
+            viewModel.play()
         }
     }
 
     val name = viewModel
         .currentTrack
         .aliases
-        .getOrElse(0) { "Unknown Track" }
+        .getOrElse(index = 0) { "Unknown Track" }
         .ifEmpty { "Unknown Track" }
     val artists = viewModel
         .currentTrack
-        .creators.joinToString(", ") {
-            it.aliases.getOrElse(0) { "Unknow Artist" }.ifEmpty { "Unknow Artist" }
+        .creators.joinToString(separator = ", ") {
+            it.aliases
+                .getOrElse(index = 0) { "Unknow Artist" }
+                .ifEmpty { "Unknow Artist" }
         }
         .ifEmpty { "Unknow Artist" }
     val album = viewModel
         .currentTrack
         .album
         .ifEmpty { "Unknown Album" }
+    val coverUri = viewModel.getCoverUri(
+        coverString = viewModel.currentTrack.cover,
+    )
 
     if (showAddToPlaylistDialog)
         AddToPlaylistDialog(
             onExitRequest = { showAddToPlaylistDialog = false },
             onPlaylistChecked = { checked, playlist ->
                 if (playlist == viewModel.favorites) {
-                    viewModel.changeTrackFavoriteState(context, viewModel.currentTrack)
+                    viewModel.changeTrackFavoriteState(viewModel.currentTrack)
                     return@AddToPlaylistDialog
                 }
 
@@ -94,7 +102,7 @@ fun MusicInfoScreen(
                 else
                     list.removeIf { it == viewModel.currentTrack }
                 Log.d("TAG", "onPlaylistChecked list size ${list.size}")
-                viewModel.savePlaylist(context, playlist.copy(tracklist = list))
+                viewModel.savePlaylist(playlist.copy(tracklist = list))
             },
             track = viewModel.currentTrack,
             allPlaylists = viewModel.allPlaylists,
@@ -130,19 +138,25 @@ fun MusicInfoScreen(
             }
         }
 
-        // Album art placeholder
-        Box(
+        AsyncImage(
+            model = coverUri,
+            contentDescription = null,
             modifier = Modifier
-                .size(250.dp)
-                .padding(16.dp)
-                .background(Color.LightGray)
-        ) {
-            Text(
-                text = "Album Art",
-                textAlign = TextAlign.Center,
-                fontSize = 16.sp
-            )
-        }
+                .size(250.dp),
+        )
+        // Album art placeholder
+//        Box(
+//            modifier = Modifier
+//                .size(250.dp)
+//                .padding(16.dp)
+//                .background(Color.LightGray)
+//        ) {
+//            Text(
+//                text = "Album Art",
+//                textAlign = TextAlign.Center,
+//                fontSize = 16.sp
+//            )
+//        }
 
         Text(text = viewModel.currentTrack.listenInSec.toString())
 
@@ -175,7 +189,7 @@ fun MusicInfoScreen(
             valueRange = 0f..duration.toFloat(),
             value = currentPosition.toFloat(),
             onValueChange = {
-                viewModel.seekTo(context, it.toLong())
+                viewModel.seekTo(it.toLong())
             },
             modifier = Modifier.fillMaxWidth()
         )
@@ -214,7 +228,7 @@ fun MusicInfoScreen(
             IconButton(
                 onClick = {
                     if (isPlaying) viewModel.pause()
-                    else viewModel.play(context)
+                    else viewModel.play()
                 }
             ) {
                 Icon(
@@ -239,7 +253,7 @@ fun MusicInfoScreen(
 
             IconButton(
                 onClick = {
-                    viewModel.changeTrackFavoriteState(context, viewModel.currentTrack)
+                    viewModel.changeTrackFavoriteState(viewModel.currentTrack)
                 },
             ) {
                 Icon(
@@ -336,7 +350,8 @@ fun AddToPlaylistDialog(
 fun MusicInfoScreenPreview() {
     MusicInfoScreen(
         viewModel = MusicPlayerViewModel(
-            searchManager = MusicPlayerSearchManager(LocalContext.current)
+            context = LocalContext.current,
+            searchManager = MusicPlayerSearchManager(LocalContext.current),
         ),
     )
 }

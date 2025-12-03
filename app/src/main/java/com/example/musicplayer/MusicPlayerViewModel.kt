@@ -1,11 +1,10 @@
 package com.example.musicplayer
 
-import android.content.ContentUris
+import android.annotation.SuppressLint
 import android.content.Context
-import android.net.Uri
 import android.os.CountDownTimer
-import android.provider.MediaStore
 import android.util.Log
+import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -13,10 +12,10 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
-import androidx.core.net.toUri
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -29,12 +28,14 @@ import com.example.musicplayer.data.CreatorDocument
 import com.example.musicplayer.data.PlaylistDocument
 import com.example.musicplayer.data.TrackDocument
 import com.example.musicplayer.data.TrackListState
+import com.example.musicplayer.mdreader.MarkdownReader
+import com.example.musicplayer.mdreader.PathHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlin.random.Random
 
 class MusicPlayerViewModel(
-    context: Context? = null,
+    @field:SuppressLint("StaticFieldLeak") val context: Context,
     val searchManager: MusicPlayerSearchManager
 ) : ViewModel() {
     var isPlaying by mutableStateOf(false)
@@ -94,6 +95,14 @@ class MusicPlayerViewModel(
     var musicState by mutableStateOf(TrackListState())
         private set
 
+    val pathHelper = PathHelper(context = context)
+
+    val markdownReader = MarkdownReader(pathHelper = pathHelper)
+
+    val mediaReader = MediaReader(context = context)
+
+    private var coverUris = mutableMapOf<String, String>()
+
     private var playerTimer: CountDownTimer? = null
 
     private var lastListenModifiedTimeInMillis: Long = Long.MAX_VALUE
@@ -107,8 +116,8 @@ class MusicPlayerViewModel(
     init {
         viewModelScope.launch {
             searchManager.init()
-            if (context != null)
-                loadAllFromCache(context)
+            loadAllFromCache()
+            scanCovers()
         }
     }
 
@@ -125,7 +134,7 @@ class MusicPlayerViewModel(
     }
 
     @OptIn(UnstableApi::class)
-    fun initializePlayer(context: Context) {
+    fun initializePlayer() {
         _exoPlayer = ExoPlayer.Builder(context)
             .setMediaSourceFactory(DefaultMediaSourceFactory(context))
             .setAudioAttributes(
@@ -141,7 +150,7 @@ class MusicPlayerViewModel(
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 this@MusicPlayerViewModel.isPlaying = isPlaying
                 if (isPlaying)
-                    startTimer(context)
+                    startTimer()
                 else
                     playerTimer?.cancel()
             }
@@ -217,12 +226,11 @@ class MusicPlayerViewModel(
         }
     }
 
-    fun scanAll(context: Context, clearCache: Boolean) {
+    fun scanAll(clearCache: Boolean) {
         Log.d("TAG", "Rescan start")
         scanJob?.cancel()
         scanJob = viewModelScope.launch(context = Dispatchers.IO) {
             isScan = true
-            val markdownReader = MarkdownReader()
             if (clearCache) {
                 searchManager.removeTracks(searchManager.searchAllTracks())
                 searchManager.removeCreators(searchManager.searchAllCreators())
@@ -234,63 +242,69 @@ class MusicPlayerViewModel(
                 allPlaylists.clear()
             }
 
-            val creators = markdownReader.scanCreators(context).toMutableList()
-
-            for (i in 0..<creators.size) {
-                val oldCreator = allCreators.find { it == creators[i] }
-                if (oldCreator == null)
-                    continue
-                creators[i] = creators[i].copy(id = oldCreator.id)
-            }
+            val creators = markdownReader
+                .scanCreators()
+                .map { creator ->
+                    val oldCreator = allCreators.find { it == creator }
+                    return@map if (oldCreator == null)
+                        creator
+                    else
+                        creator.copy(id = oldCreator.id)
+                }
 
             allCreators.clear()
             searchManager.putCreators(creators)
             allCreators.addAll(creators)
-            Log.d("TAG", "Finish scan creators from markdown")
+            Log.d("TAG", "Finish scan creators from markdown ${creators.size}")
 
-            var tracks = markdownReader
-                .scanTracks(context, allCreators)
+            val sourceFileUris = mediaReader.scanAudio(
+                uri = pathHelper.getTracksFolderPath().toUri(),
+            )
+            val tracks = markdownReader
+                .scanTracks(allCreators)
                 .sortedByDescending { it.created }
-                .toMutableList()
-            Log.d("TAG", "Finish scan tracks from markdown")
+                .map { track ->
+                    val sourceUri = sourceFileUris[track.sourceFile]
+                    val oldTrack = allTracks.find { it == track }
+                    return@map if (oldTrack == null)
+                        track.copy(sourceUri = sourceUri ?: "")
+                    else
+                        track.copy(
+                            id = oldTrack.id,
+                            sourceUri = sourceUri ?: oldTrack.sourceUri,
+                        )
+                }
+            Log.d("TAG", "Finish scan tracks from markdown ${tracks.size}")
 
-            for (i in 0..<tracks.size) {
-                val oldTrack = allTracks.find { it == tracks[i] }
-                if (oldTrack == null)
-                    continue
-                tracks[i] = tracks[i].copy(id = oldTrack.id)
-            }
-
-            tracks = scanSourceTracks(context, tracks).toMutableList()
-            Log.d("TAG", "Finish scan tracks from source")
-
+            searchManager.putTracks(tracks)
             allTracks.clear()
             allTracks.addAll(tracks)
-            searchManager.putTracks(allTracks)
             Log.d("TAG", "Finish scan tracks")
 
-            val albums = markdownReader.scanAlbums(context, allCreators, allTracks).toMutableList()
-
-            for (i in 0..<albums.size) {
-                val oldAlbum = allAlbums.find { it == albums[i] }
-                if (oldAlbum == null)
-                    continue
-                albums[i] = albums[i].copy(id = oldAlbum.id)
-            }
+            val albums = markdownReader
+                .scanAlbums(allCreators, allTracks)
+                .map { album ->
+                    val oldAlbum = allAlbums.find { it == album }
+                    return@map if (oldAlbum == null)
+                        album
+                    else
+                        album.copy(id = oldAlbum.id)
+                }
 
             searchManager.putAlbums(albums)
             allAlbums.clear()
             allAlbums.addAll(albums)
-            Log.d("TAG", "Finish scan albums from markdown")
+            Log.d("TAG", "Finish scan albums from markdown ${albums.size}")
 
-            val playlists = markdownReader.scanPlaylists(context, allTracks).toMutableList()
-
-            for (i in 0..<playlists.size) {
-                val oldPlaylist = allPlaylists.find { it == playlists[i] }
-                if (oldPlaylist == null)
-                    continue
-                playlists[i] = playlists[i].copy(id = oldPlaylist.id)
-            }
+            val playlists = markdownReader
+                .scanPlaylists(allTracks)
+                .map { playlist ->
+                    val oldPlaylist = allPlaylists.find { it == playlist }
+                    return@map if (oldPlaylist == null)
+                        playlist
+                    else
+                        playlist.copy(id = oldPlaylist.id)
+                }
 
             searchManager.putPlaylists(playlists)
             allPlaylists.clear()
@@ -298,59 +312,13 @@ class MusicPlayerViewModel(
             favorites = allPlaylists.find {
                 it.aliases.getOrElse(0) { false } == "Favorites"
             } ?: favorites
-            Log.d("TAG", "Finish scan playlists from markdown")
+            Log.d("TAG", "Finish scan playlists from markdown ${playlists.size}")
             Log.d("TAG", "Rescan end")
             isScan = false
         }
     }
 
-    private fun scanSourceTracks(context: Context, tracks: List<TrackDocument>): List<TrackDocument> {
-        val musicPathString = getTracksFolderPath(context)
-        if (musicPathString.isEmpty())
-            return emptyList()
-        if (tracks.isEmpty())
-            return emptyList()
-
-        val uri = musicPathString.toUri()
-        val queryUri = MediaStore.Audio.Media.getContentUri(
-            MediaStore.VOLUME_EXTERNAL
-        )
-        val projection = arrayOf(
-            MediaStore.Audio.Media._ID,
-            MediaStore.Audio.Media.RELATIVE_PATH,
-            MediaStore.Audio.Media.DISPLAY_NAME,
-        )
-        val selectionPath = uri.lastPathSegment!!.substringAfter(":") + "/"
-        val selection = "${MediaStore.Audio.Media.RELATIVE_PATH} = ?"
-        val selectionArgs = arrayOf(
-            selectionPath,
-        )
-
-        context.contentResolver.query(
-            queryUri,
-            projection,
-            selection,
-            selectionArgs,
-            null,
-        )?.use { cursor ->
-            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val displayNameColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
-            while (cursor.moveToNext()) {
-                val id = cursor.getLong(idColumn)
-                val fileName = cursor.getString(displayNameColumn)
-                val contentUri: Uri = ContentUris.withAppendedId(
-                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                    id,
-                )
-                tracks.find {
-                    musicInfo -> musicInfo.sourceFile == fileName
-                }?.sourceUri = contentUri.toString()
-            }
-        }
-        return tracks
-    }
-
-    fun loadAllFromCache(context: Context) {
+    fun loadAllFromCache() {
         scanJob?.cancel()
         scanJob = viewModelScope.launch(context = Dispatchers.IO) {
             isScan = true
@@ -359,8 +327,20 @@ class MusicPlayerViewModel(
             Log.d("TAG", "Finish scan creators from cache ${allCreators.size}")
 
             allTracks.clear()
-            val tracks = searchManager.searchAllTracks()
-            allTracks.addAll(scanSourceTracks(context, tracks))
+            val sourceFileUris = mediaReader.scanAudio(
+                uri = pathHelper.getTracksFolderPath().toUri(),
+            )
+            val tracks = searchManager
+                .searchAllTracks()
+                .map { track ->
+                    val sourceUri = sourceFileUris[track.sourceFile]
+                    return@map if (sourceUri == null)
+                        track
+                    else
+                        track.copy(sourceUri = sourceUri)
+                }
+
+            allTracks.addAll(tracks)
             Log.d("TAG", "Finish scan tracks from cache ${allTracks.size}")
 
             allAlbums.clear()
@@ -377,6 +357,18 @@ class MusicPlayerViewModel(
         }
     }
 
+    fun scanCovers() {
+        val notePath = pathHelper.getNotesFolderPath()
+        val uri = "$notePath%2F${PathHelper.COVERS_FOLDER_NAME_IN_NOTES}".toUri()
+        coverUris = mediaReader.scanCovers(uri = uri).toMutableMap()
+        coverUris.put("", getCoverUri(coverString = "_No Album Art.jpg"))
+    }
+
+    fun getCoverUri(coverString: String): String {
+        Log.d("TAG", "cover = $coverString uri = ${coverUris[coverString]}")
+        return coverUris[coverString] ?: ""
+    }
+
     fun setMediaSourceWithService(track: TrackDocument) {
         if (track.id != currentTrack.id) {
             Log.d("TAG", "Source Uri: ${track.sourceUri}")
@@ -386,11 +378,16 @@ class MusicPlayerViewModel(
             if (isShuffle) {
                 randomQueueIndex = randomQueue.indexOf(currentTrack)
             }
-            _exoPlayer?.setMediaItem(MediaItem.fromUri(track.sourceUri))
+            try {
+                _exoPlayer?.setMediaItem(MediaItem.fromUri(track.sourceUri))
+            } catch (_: Exception) {
+                Toast.makeText(context, "SourceFile не валидный!", Toast.LENGTH_SHORT).show()
+                nextTrack()
+            }
         }
     }
 
-    private fun startTimer(context: Context) {
+    private fun startTimer() {
         if (duration == 0L)
             return
         playerTimer?.cancel()
@@ -407,10 +404,10 @@ class MusicPlayerViewModel(
                 if (lastListenModifiedTimeInMillis - millisUntilFinished >= 1000L) {
                     lastListenModifiedTimeInMillis = millisUntilFinished
                     currentTrack.listenInSec++
-                    val markdownReader = MarkdownReader()
-                    markdownReader.saveTrack(context, currentTrack)
+                    markdownReader.saveTrack(currentTrack)
                     currentTrack.creators.forEach {
                         it.listenInSec++
+                        markdownReader.saveCreator(creator = it)
                     }
                     viewModelScope.launch {
                         searchManager.putTracks(listOf(currentTrack))
@@ -422,10 +419,10 @@ class MusicPlayerViewModel(
         }.start()
     }
 
-    fun play(context: Context) {
+    fun play() {
         _exoPlayer?.play()
         isPlaying = true
-        startTimer(context)
+        startTimer()
     }
 
     fun pause() {
@@ -434,12 +431,12 @@ class MusicPlayerViewModel(
         playerTimer?.cancel()
     }
 
-    fun seekTo(context: Context, position: Long) {
+    fun seekTo(position: Long) {
         _exoPlayer?.seekTo(position)
         currentPosition = position
         lastListenModifiedTimeInMillis = duration - currentPosition
         if (isPlaying)
-            startTimer(context)
+            startTimer()
     }
 
     fun nextTrack() {
@@ -489,7 +486,7 @@ class MusicPlayerViewModel(
         }
     }
 
-    fun addToFavorites(context: Context, track: TrackDocument) {
+    fun addToFavorites(track: TrackDocument) {
         if (isFavorite)
             return
         isFavorite = true
@@ -497,10 +494,10 @@ class MusicPlayerViewModel(
         val list = favorites.tracklist.toMutableList()
         list.add(track)
         favorites.tracklist = list
-        savePlaylist(context, favorites)
+        savePlaylist(favorites)
     }
 
-    fun removeFromFavorites(context: Context, track: TrackDocument) {
+    fun removeFromFavorites(track: TrackDocument) {
         if (!isFavorite)
             return
         isFavorite = false
@@ -508,24 +505,24 @@ class MusicPlayerViewModel(
         val list = favorites.tracklist.toMutableList()
         list.remove(track)
         favorites.tracklist = list
-        savePlaylist(context, favorites)
+        savePlaylist(favorites)
     }
 
-    fun changeTrackFavoriteState(context: Context, track: TrackDocument) {
+    fun changeTrackFavoriteState(track: TrackDocument) {
         if (isFavorite)
-            removeFromFavorites(context, track)
+            removeFromFavorites(track)
         else
-            addToFavorites(context, track)
+            addToFavorites(track)
     }
 
-    fun savePlaylist(context: Context, playlist: PlaylistDocument) {
+    fun savePlaylist(playlist: PlaylistDocument) {
         Log.d("TAG", "savePlaylist ${playlist.fileName} - ${playlist.tracklist.size}")
         val index = allPlaylists.indexOfFirst { it == playlist }
         if (index == -1)
             return
         allPlaylists[index] = playlist.copy(id = allPlaylists[index].id)
         viewModelScope.launch(Dispatchers.IO) {
-            MarkdownReader().savePlaylist(context, allPlaylists[index])
+            markdownReader.savePlaylist(allPlaylists[index])
             searchManager.putPlaylists(listOf(allPlaylists[index]))
         }
         Log.d("TAG", "savePlaylist success")

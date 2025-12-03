@@ -1,4 +1,4 @@
-package com.example.musicplayer
+package com.example.musicplayer.ui.screen
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.background
@@ -28,6 +28,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.musicplayer.MusicPlayerSearchManager
+import com.example.musicplayer.MusicPlayerViewModel
+import com.example.musicplayer.R
 import com.example.musicplayer.data.PlaylistDocument
 import com.example.musicplayer.data.TrackDocument
 import my.nanihadesuka.compose.LazyColumnScrollbar
@@ -156,7 +159,8 @@ fun PlaylistScreenPreview() {
 fun PlaylistTracksPreview() {
     PlaylistTracks(
         viewModel = MusicPlayerViewModel(
-            searchManager = MusicPlayerSearchManager(LocalContext.current)
+            context = LocalContext.current,
+            searchManager = MusicPlayerSearchManager(LocalContext.current),
         ),
         playlist = PlaylistDocument.createEmpty().copy(
             aliases = listOf("Favorites"),

@@ -1,4 +1,4 @@
-package com.example.musicplayer
+package com.example.musicplayer.ui.screen
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.clickable
@@ -12,6 +12,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.musicplayer.MusicPlayerSearchManager
+import com.example.musicplayer.MusicPlayerViewModel
+import com.example.musicplayer.R
 import com.example.musicplayer.data.TrackDocument
 import kotlin.collections.ifEmpty
 import kotlin.collections.joinToString
@@ -82,7 +85,8 @@ fun SearchScreen(
 fun SearchScreenPreview() {
     SearchScreen(
         viewModel = MusicPlayerViewModel(
-            searchManager = MusicPlayerSearchManager(LocalContext.current)
+            context = LocalContext.current,
+            searchManager = MusicPlayerSearchManager(LocalContext.current),
         ),
         onTrackSelected = {},
     )

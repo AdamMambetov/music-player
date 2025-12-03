@@ -44,7 +44,7 @@ data class AlbumDocument(
     override fun equals(other: Any?): Boolean {
         if (other !is AlbumDocument)
             return false
-        return other.id == id || other.fileName == fileName
+        return other.fileName == fileName
     }
 
     override fun hashCode(): Int {

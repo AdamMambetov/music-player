@@ -1,4 +1,4 @@
-package com.example.musicplayer
+package com.example.musicplayer.ui.screen
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.background
@@ -34,6 +34,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.musicplayer.MusicPlayerSearchManager
+import com.example.musicplayer.MusicPlayerViewModel
+import com.example.musicplayer.R
 import com.example.musicplayer.data.TrackDocument
 import kotlinx.coroutines.launch
 import my.nanihadesuka.compose.LazyColumnScrollbar
@@ -79,8 +82,6 @@ fun MusicPlayerScreen(
 fun BottomPlayerControls(
     viewModel: MusicPlayerViewModel,
 ) {
-    val context = LocalContext.current
-
     Column(
         modifier = Modifier.fillMaxHeight(),
         verticalArrangement = Arrangement.Bottom,
@@ -104,7 +105,7 @@ fun BottomPlayerControls(
             IconButton(
                 onClick = {
                     if (viewModel.isPlaying) viewModel.pause()
-                    else viewModel.play(context)
+                    else viewModel.play()
                 }
             ) {
                 Icon(
@@ -267,7 +268,8 @@ fun BottomScrollControls(
 fun MusicPlayerScreenPreview() {
     MusicPlayerScreen(
         viewModel = MusicPlayerViewModel(
-            searchManager = MusicPlayerSearchManager(LocalContext.current)
+            context = LocalContext.current,
+            searchManager = MusicPlayerSearchManager(LocalContext.current),
         ),
         modifier = Modifier,
         trackList = listOf(
