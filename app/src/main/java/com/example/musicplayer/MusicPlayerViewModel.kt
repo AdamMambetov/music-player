@@ -365,7 +365,6 @@ class MusicPlayerViewModel(
     }
 
     fun getCoverUri(coverString: String): String {
-        Log.d("TAG", "cover = $coverString uri = ${coverUris[coverString]}")
         return coverUris[coverString] ?: ""
     }
 
@@ -516,15 +515,13 @@ class MusicPlayerViewModel(
     }
 
     fun savePlaylist(playlist: PlaylistDocument) {
-        Log.d("TAG", "savePlaylist ${playlist.fileName} - ${playlist.tracklist.size}")
         val index = allPlaylists.indexOfFirst { it == playlist }
         if (index == -1)
             return
-        allPlaylists[index] = playlist.copy(id = allPlaylists[index].id)
+        allPlaylists[index].tracklist = playlist.tracklist
         viewModelScope.launch(Dispatchers.IO) {
             markdownReader.savePlaylist(allPlaylists[index])
             searchManager.putPlaylists(listOf(allPlaylists[index]))
         }
-        Log.d("TAG", "savePlaylist success")
     }
 }

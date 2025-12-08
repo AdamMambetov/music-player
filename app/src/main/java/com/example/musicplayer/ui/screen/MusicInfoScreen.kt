@@ -1,7 +1,6 @@
 package com.example.musicplayer.ui.screen
 
 import android.annotation.SuppressLint
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -96,12 +95,10 @@ fun MusicInfoScreen(
                 }
 
                 val list = playlist.tracklist.toMutableList()
-                Log.d("TAG", "onPlaylistChecked checked = $checked, playlist = ${playlist.fileName} ${playlist.tracklist.size}")
                 if (checked)
                     list.add(viewModel.currentTrack)
                 else
                     list.removeIf { it == viewModel.currentTrack }
-                Log.d("TAG", "onPlaylistChecked list size ${list.size}")
                 viewModel.savePlaylist(playlist.copy(tracklist = list))
             },
             track = viewModel.currentTrack,
