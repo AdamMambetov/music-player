@@ -2,6 +2,7 @@ package com.example.musicplayer.ui.screen
 
 import android.annotation.SuppressLint
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -31,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -57,6 +60,7 @@ fun MusicInfoScreen(
     val isFavorite = viewModel.isFavorite
     val currentPosition = viewModel.currentPosition
     val duration = viewModel.duration
+    val track = viewModel.currentTrack
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
     
     LaunchedEffect(key1 = Unit) {
@@ -65,28 +69,25 @@ fun MusicInfoScreen(
         }
     }
 
-    val name = viewModel
-        .currentTrack
+    val name = track
         .aliases
         .getOrElse(index = 0) { "Unknown Track" }
         .ifEmpty { "Unknown Track" }
-    val artists = viewModel
-        .currentTrack
+    val artists = track
         .creators.joinToString(separator = ", ") {
             it.aliases
                 .getOrElse(index = 0) { "Unknow Artist" }
                 .ifEmpty { "Unknow Artist" }
         }
         .ifEmpty { "Unknow Artist" }
-    val album = viewModel
-        .currentTrack
+    val album = track
         .album
         .ifEmpty { "Unknown Album" }
     val coverUri = viewModel.getCoverUri(
-        coverString = viewModel.currentTrack.cover,
+        coverString = track.cover,
     )
 
-    if (showAddToPlaylistDialog)
+    AnimatedVisibility(showAddToPlaylistDialog) {
         AddToPlaylistDialog(
             onExitRequest = { showAddToPlaylistDialog = false },
             onPlaylistChecked = { checked, playlist ->
@@ -107,165 +108,199 @@ fun MusicInfoScreen(
             track = viewModel.currentTrack,
             allPlaylists = viewModel.allPlaylists,
         )
+    }
 
     Column(
         modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 15.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 32.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+                .weight(1F)
+                .border(
+                    width = 1.dp,
+                    shape = RoundedCornerShape(size = 30.dp),
+                    color = Color.White,
+                )
         ) {
-            // Back button
-            IconButton(onClick = { onBackClicked() }) {
-                Icon(
-                    painter = painterResource(R.drawable.back),
-                    contentDescription = "Back",
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-            // Add to playlist button
-            IconButton(onClick = { showAddToPlaylistDialog = true }) {
-                Icon(
-                    painter = painterResource(R.drawable.add_link),
-                    contentDescription = "Add to playlist",
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-        }
+            Text(
+                text = name,
+                modifier = Modifier.padding(top = 15.dp, start = 15.dp),
+                color = Color.White,
+                fontSize = 16.sp,
+            )
+            Text(
+                text = artists,
+                modifier = Modifier.padding(start = 15.dp),
+                color = Color.White,
+                fontSize = 14.sp,
+            )
+            Text(
+                text = album,
+                modifier = Modifier.padding(start = 15.dp, bottom = 5.dp),
+                color = Color.White,
+                fontSize = 14.sp,
+            )
 
-        AsyncImage(
-            model = coverUri,
-            contentDescription = null,
-            modifier = Modifier
-                .size(250.dp),
-        )
-        // Album art placeholder
-//        Box(
-//            modifier = Modifier
-//                .size(250.dp)
-//                .padding(16.dp)
-//                .background(Color.LightGray)
-//        ) {
-//            Text(
-//                text = "Album Art",
-//                textAlign = TextAlign.Center,
-//                fontSize = 16.sp
-//            )
-//        }
-
-        Text(text = viewModel.currentTrack.listenInSec.toString())
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Track info
-        Text(
-            text = name,
-            fontSize = 24.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        Text(
-            text = artists,
-            fontSize = 18.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        Text(
-            text = album,
-            fontSize = 18.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
-
-        // Progress slider
-        Slider(
-            valueRange = 0f..duration.toFloat(),
-            value = currentPosition.toFloat(),
-            onValueChange = {
-                viewModel.seekTo(it.toLong())
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        // Player controls
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            IconButton(
-                onClick = {
-                    if (isShuffle) viewModel.disableShuffle()
-                    else viewModel.enableShuffle()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1F)
+                    .border(
+                        width = 1.dp,
+                        shape = RoundedCornerShape(size = 30.dp),
+                        color = Color.White,
+                    )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(text = "00:00", color = Color.White)
+                    Slider(
+                        valueRange = 0f..duration.toFloat(),
+                        value = currentPosition.toFloat(),
+                        onValueChange = {
+                            viewModel.seekTo(it.toLong())
+                        },
+                        modifier = Modifier.weight(1F)
+                    )
+                    Text(text = "04:00", color = Color.White)
                 }
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.shuffle),
-                    contentDescription = "Shuffle",
-                    modifier = Modifier.size(64.dp),
-                    tint = if (isShuffle) Color.Unspecified else Color.LightGray
-                )
-            }
 
-            Spacer(modifier = Modifier.weight(1f))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1F)
+                        .border(
+                            width = 1.dp,
+                            shape = RoundedCornerShape(size = 30.dp),
+                            color = Color.White,
+                        )
+                ) {
+                    Row {
+                        for (i in 0 until 10) {
+                            Text(
+                                text = i.toString(),
+                                modifier = Modifier
+                                    .padding(all = 15.dp),
+                                color = Color.White,
+                            )
+                        }
+                    }
 
-            IconButton(onClick = { viewModel.previousTrack() }) {
-                Icon(
-                    painter = painterResource(R.drawable.skip_previous),
-                    contentDescription = "Previous",
-                    modifier = Modifier.size(64.dp)
-                )
-            }
-
-            IconButton(
-                onClick = {
-                    if (isPlaying) viewModel.pause()
-                    else viewModel.play()
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize(1F)
+                            .padding(50.dp)
+                            .background(Color.Cyan)
+                            .align(alignment = Alignment.CenterHorizontally),
+                    ) {
+                        AsyncImage(
+                            model = coverUri,
+                            contentDescription = null,
+                        )
+                    }
                 }
-            ) {
-                Icon(
-                    painter = painterResource(
-                        id = if (isPlaying) R.drawable.pause
-                             else R.drawable.play_arrow
-                    ),
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    modifier = Modifier.size(64.dp)
-                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(
+                        onClick = { viewModel.previousTrack() },
+                        modifier = Modifier.size(50.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.skip_previous),
+                            contentDescription = "Previous",
+                            modifier = Modifier.size(50.dp),
+                            tint = Color.White,
+                        )
+                    }
+
+                    IconButton(
+                        onClick = {
+                            if (isPlaying) viewModel.pause()
+                            else viewModel.play()
+                        },
+                        modifier = Modifier.size(50.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(
+                                id = if (isPlaying) R.drawable.pause
+                                else R.drawable.play_arrow
+                            ),
+                            contentDescription = if (isPlaying) "Pause" else "Play",
+                            modifier = Modifier.size(50.dp),
+                            tint = Color.White,
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { viewModel.nextTrack() },
+                        modifier = Modifier.size(50.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.skip_next),
+                            contentDescription = "Next",
+                            modifier = Modifier.size(50.dp),
+                            tint = Color.White,
+                        )
+                    }
+                }
             }
 
-            IconButton(onClick = { viewModel.nextTrack() }) {
-                Icon(
-                    painter = painterResource(R.drawable.skip_next),
-                    contentDescription = "Next",
-                    modifier = Modifier.size(64.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            IconButton(
-                onClick = {
-                    viewModel.changeTrackFavoriteState(viewModel.currentTrack)
-                },
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Icon(
-                    painter = painterResource(
-                        id = if (isFavorite) R.drawable.favorite_filled
+                IconButton(
+                    onClick = {
+                        if (isShuffle) viewModel.disableShuffle()
+                        else viewModel.enableShuffle()
+                    }
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.shuffle),
+                        contentDescription = "Shuffle",
+                        modifier = Modifier.size(32.dp),
+                        tint = if (isShuffle) Color.White else Color.DarkGray,
+                    )
+                }
+
+                IconButton(
+                    onClick = {
+                        viewModel.changeTrackFavoriteState(viewModel.currentTrack)
+                    },
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            id = if (isFavorite) R.drawable.favorite_filled
                             else R.drawable.favorite_outline
-                    ),
-                    contentDescription = "Favorite",
-                    modifier = Modifier.size(64.dp),
-                )
+                        ),
+                        contentDescription = "Favorite",
+                        modifier = Modifier.size(32.dp),
+                        tint = Color.White,
+                    )
+                }
             }
         }
+        Row(
+            modifier = Modifier
+                .size(100.dp)
+                .background(color = Color.Blue)
+        ) {}
     }
 }
 
@@ -345,7 +380,7 @@ fun AddToPlaylistDialog(
 }
 
 @SuppressLint("ViewModelConstructorInComposable")
-@Preview(showBackground = true)
+@Preview()
 @Composable
 fun MusicInfoScreenPreview() {
     MusicInfoScreen(
