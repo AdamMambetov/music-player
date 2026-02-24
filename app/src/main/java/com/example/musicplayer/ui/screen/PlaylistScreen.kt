@@ -64,9 +64,18 @@ fun AllPlaylists(
                         .padding(30.dp)
                         .clickable(onClick = { onPlaylistSelected(playlist) }),
                 ) {
-                    Text(text = playlistName, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = playlistName,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                    )
                     Spacer(modifier = Modifier.weight(1f))
-                    Text(text = playlist.tracklist.size.toString(), fontSize = 16.sp)
+                    Text(
+                        text = playlist.tracklist.size.toString(),
+                        fontSize = 16.sp,
+                        color = Color.Black,
+                    )
                 }
             }
         }

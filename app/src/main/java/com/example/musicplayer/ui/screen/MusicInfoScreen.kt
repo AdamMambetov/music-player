@@ -291,7 +291,8 @@ fun AddToPlaylistDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 10.dp),
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    color = Color.Black,
                 )
                 Row {
                     Spacer(modifier = Modifier.weight(1f))
@@ -334,6 +335,7 @@ fun AddToPlaylistDialog(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(10.dp),
+                        color = Color.Black,
                     )
                 }
             }
