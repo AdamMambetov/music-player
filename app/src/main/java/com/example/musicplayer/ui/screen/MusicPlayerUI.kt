@@ -62,7 +62,11 @@ fun MusicPlayerScreen(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
             ) {
-                items(items = trackList, key = { it.id }) { trackInfo ->
+                items(
+                    items = trackList,
+                    key = { it.id },
+                    contentType = { it.javaClass },
+                ) { trackInfo ->
                     TrackListItem(
                         trackInfo = trackInfo,
                         viewModel = viewModel,

@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
 import com.example.musicplayer.ui.theme.MusicPlayerTheme
@@ -277,7 +278,7 @@ fun MainScreens(
 
 @SuppressLint("ViewModelConstructorInComposable")
 @Composable
-@PreviewScreenSizes
+@Preview(showBackground = true)
 fun MusicPlayerAppPreview() {
     MusicPlayerApp(MusicPlayerViewModel(
         context = LocalContext.current,
