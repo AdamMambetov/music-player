@@ -44,6 +44,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.media3.common.util.UnstableApi
 import com.example.musicplayer.ui.screen.AllPlaylists
+import com.example.musicplayer.ui.screen.AllAlbums
+import com.example.musicplayer.ui.screen.AlbumTracks
 import com.example.musicplayer.ui.screen.MusicInfoScreen
 import com.example.musicplayer.ui.screen.MusicPlayerScreen
 import com.example.musicplayer.ui.screen.PlaylistTracks
@@ -106,6 +108,7 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     var isTrackSelected by remember { mutableStateOf(false) }
     var isPlaylistSelected by remember { mutableStateOf(false) }
+    var isAlbumSelected by remember { mutableStateOf(false) }
     var showNavigationRail by remember { mutableStateOf(false) }
 
     if (showNavigationRail) {
@@ -118,6 +121,7 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
                         onClick = {
                             currentDestination = it
                             isTrackSelected = false
+                            isAlbumSelected = false
                         },
                         icon = {
                             Icon(
@@ -133,9 +137,11 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
                 onTopBarClicked = { showNavigationRail = !showNavigationRail },
                 onTrackSelected = { isTrackSelected = it },
                 onPlaylistSelected = { isPlaylistSelected = it },
+                onAlbumSelected = { isAlbumSelected = it },
                 currentDestination = currentDestination,
                 isTrackSelected = isTrackSelected,
                 isPlaylistSelected = isPlaylistSelected,
+                isAlbumSelected = isAlbumSelected,
                 viewModel = viewModel,
             )
         }
@@ -144,9 +150,11 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
             onTopBarClicked = { showNavigationRail = !showNavigationRail },
             onTrackSelected = { isTrackSelected = it },
             onPlaylistSelected = { isPlaylistSelected = it },
+            onAlbumSelected = { isAlbumSelected = it },
             currentDestination = currentDestination,
             isTrackSelected = isTrackSelected,
             isPlaylistSelected = isPlaylistSelected,
+            isAlbumSelected = isAlbumSelected,
             viewModel = viewModel,
         )
     }
@@ -158,9 +166,11 @@ fun MainScreens(
     onTopBarClicked: () -> Unit,
     onTrackSelected: (value: Boolean) -> Unit,
     onPlaylistSelected: (value: Boolean) -> Unit,
+    onAlbumSelected: (value: Boolean) -> Unit,
     currentDestination: AppDestinations,
     isTrackSelected: Boolean,
     isPlaylistSelected: Boolean,
+    isAlbumSelected: Boolean,
     viewModel: MusicPlayerViewModel,
 ) {
     Scaffold(
@@ -271,6 +281,40 @@ fun MainScreens(
                         )
                     }
                 }
+                AppDestinations.ALBUMS -> {
+                    if (isAlbumSelected) {
+                        if (isTrackSelected) {
+                            MusicInfoScreen(
+                                modifier = Modifier.padding(innerPadding),
+                                viewModel = viewModel,
+                                onBackClicked = { onTrackSelected(false) }
+                            )
+                        } else {
+                            AlbumTracks(
+                                modifier = Modifier.padding(innerPadding),
+                                viewModel = viewModel,
+                                onTrackSelected = { track ->
+                                    onTrackSelected(true)
+                                    viewModel.currentQueue =
+                                        viewModel.currentAlbum.tracklist.toMutableList()
+                                    viewModel.currentQueueIndex =
+                                        viewModel.currentAlbum.tracklist.indexOf(track)
+                                    viewModel.setMediaSourceWithService(track)
+                                },
+                                onBackClicked = { onAlbumSelected(false) }
+                            )
+                        }
+                    } else {
+                        AllAlbums(
+                            modifier = Modifier.padding(innerPadding),
+                            onAlbumSelected = { album ->
+                                onAlbumSelected(true)
+                                viewModel.currentAlbum = album
+                            },
+                            allAlbums = viewModel.allAlbums,
+                        )
+                    }
+                }
             }
         }
     }
@@ -294,5 +338,6 @@ enum class AppDestinations(
     SEARCH("Search", R.drawable.search),
     SETTINGS("Settings", R.drawable.settings),
     PLAYLISTS("Playlists", R.drawable.data_table),
+    ALBUMS("Albums", R.drawable.album),
 }
 

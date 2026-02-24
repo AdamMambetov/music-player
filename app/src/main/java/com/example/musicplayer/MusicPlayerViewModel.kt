@@ -72,7 +72,7 @@ class MusicPlayerViewModel(
         private set
 
     var currentAlbum by mutableStateOf(AlbumDocument.createEmpty())
-        private set
+        internal set
 
     var currentPlaylist by mutableStateOf(PlaylistDocument.createEmpty())
 
