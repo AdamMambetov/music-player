@@ -1,37 +1,17 @@
 package com.example.musicplayer.data
 
-import androidx.appsearch.annotation.Document
-import androidx.appsearch.annotation.Document.CreationTimestampMillis
-import androidx.appsearch.annotation.Document.Namespace
-import androidx.appsearch.annotation.Document.Id
-import androidx.appsearch.annotation.Document.Score
-import androidx.appsearch.annotation.Document.StringProperty
-import androidx.appsearch.app.AppSearchSchema
 import androidx.compose.runtime.Stable
-import com.example.musicplayer.MusicPlayerSearchManager
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
 
 @Stable
-@Document
 data class CreatorDocument(
-    @CreationTimestampMillis
-    val created: Long,
-    @StringProperty
-    val aliases: List<String>,
-    @StringProperty(indexingType = AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES)
-    val lowerAliases: List<String>,
-    @StringProperty(indexingType = AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES)
-    val upperAliases: List<String>,
-    @StringProperty(indexingType = AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_NONE)
-    val fileName: String,
-    @Namespace
-    val namespace: String = MusicPlayerSearchManager.NAMESPACE,
-    @Id
+    val created: Long = 0L,
+    val aliases: List<String> = emptyList(),
+    val fileName: String = "",
     val id: String = UUID.randomUUID().toString(),
-    @Score
     var listenInSec: Int = 0,
 ) {
     override fun equals(other: Any?): Boolean {
@@ -43,15 +23,11 @@ data class CreatorDocument(
     override fun hashCode(): Int {
         var result = created.hashCode()
         result = 31 * result + aliases.hashCode()
-        result = 31 * result + lowerAliases.hashCode()
-        result = 31 * result + upperAliases.hashCode()
         result = 31 * result + fileName.hashCode()
-        result = 31 * result + namespace.hashCode()
         result = 31 * result + id.hashCode()
         result = 31 * result + listenInSec.hashCode()
         return result
     }
-
 
     fun getCreatedDate(): Calendar {
         return Calendar
@@ -73,13 +49,9 @@ data class CreatorDocument(
 
     companion object {
         fun createEmpty(): CreatorDocument {
-            return CreatorDocument(
-                created = 0L,
-                aliases = emptyList(),
-                lowerAliases = emptyList(),
-                upperAliases = emptyList(),
-                fileName = "",
-            )
+            return CreatorDocument()
         }
+
+        const val UNKNOWN = "Unknown Artist"
     }
 }

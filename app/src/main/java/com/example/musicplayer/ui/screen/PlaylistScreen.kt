@@ -28,7 +28,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.musicplayer.MusicPlayerSearchManager
 import com.example.musicplayer.MusicPlayerViewModel
 import com.example.musicplayer.R
 import com.example.musicplayer.data.PlaylistDocument
@@ -55,8 +54,8 @@ fun AllPlaylists(
             items(items = allPlaylists, key = { it.id }) { playlist ->
                 val playlistName = playlist
                     .aliases
-                    .getOrElse(0) { "Unknown Playlist" }
-                    .ifEmpty { "Unknown Playlist" }
+                    .getOrElse(0) { PlaylistDocument.UNKNOWN }
+                    .ifEmpty { PlaylistDocument.UNKNOWN }
 
                 Row(
                     modifier = Modifier
@@ -169,7 +168,6 @@ fun PlaylistTracksPreview() {
     PlaylistTracks(
         viewModel = MusicPlayerViewModel(
             context = LocalContext.current,
-            searchManager = MusicPlayerSearchManager(LocalContext.current),
         ),
         playlist = PlaylistDocument.createEmpty().copy(
             aliases = listOf("Favorites"),

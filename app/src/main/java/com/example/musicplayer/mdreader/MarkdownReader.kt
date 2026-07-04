@@ -110,8 +110,6 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
         return TrackDocument(
             created = getDateFromString(source = yamlData[CREATED_KEY].orEmpty()).timeInMillis,
             aliases = aliases,
-            lowerAliases = aliases.map { it.lowercase() },
-            upperAliases = aliases.map { it.uppercase() },
             cover = unLink(yamlData[COVER_KEY].orEmpty()),
             creators = stringArrayToList(yamlData[CREATORS_KEY].orEmpty())
                 .mapNotNull { creatorName ->
@@ -138,8 +136,6 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
         return CreatorDocument(
             created = getDateFromString(source = yamlData[CREATED_KEY].orEmpty()).timeInMillis,
             aliases = aliases,
-            lowerAliases = aliases.map { it.lowercase() },
-            upperAliases = aliases.map { it.uppercase() },
             fileName = filename.removeSuffix(".md"),
             listenInSec = yamlData[LISTEN_IN_SEC_KEY]?.toIntOrNull() ?: 0,
         )
@@ -157,8 +153,6 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
         return AlbumDocument(
             created = getDateFromString(source = yamlData[CREATED_KEY].orEmpty()).timeInMillis,
             aliases = aliases,
-            lowerAliases = aliases.map { it.lowercase() },
-            upperAliases = aliases.map { it.uppercase() },
             cover = unLink(yamlData[COVER_KEY].orEmpty()),
             year = yamlData[YEAR_KEY]?.toLongOrNull() ?: 0L,
             creators = stringArrayToList(yamlData[CREATORS_KEY].orEmpty())
@@ -184,8 +178,6 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
         return PlaylistDocument(
             created = getDateFromString(source = yamlData[CREATED_KEY].orEmpty()).timeInMillis,
             aliases = aliases,
-            lowerAliases = aliases.map { it.lowercase() },
-            upperAliases = aliases.map { it.uppercase() },
             tracklist = stringArrayToList(yamlData[TRACKLIST_KEY].orEmpty())
                 .mapNotNull { trackName ->
                     allTracks.find { it.fileName == unLink(trackName) }

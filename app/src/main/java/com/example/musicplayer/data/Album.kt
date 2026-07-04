@@ -1,44 +1,20 @@
 package com.example.musicplayer.data
 
-import androidx.appsearch.annotation.Document
-import androidx.appsearch.annotation.Document.CreationTimestampMillis
-import androidx.appsearch.annotation.Document.Namespace
-import androidx.appsearch.annotation.Document.Id
-import androidx.appsearch.annotation.Document.StringProperty
-import androidx.appsearch.annotation.Document.DocumentProperty
-import androidx.appsearch.annotation.Document.LongProperty
-import androidx.appsearch.app.AppSearchSchema
 import androidx.compose.runtime.Stable
-import com.example.musicplayer.MusicPlayerSearchManager
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
 
 @Stable
-@Document
 data class AlbumDocument(
-    @CreationTimestampMillis
-    val created: Long,
-    @StringProperty
-    val aliases: List<String>,
-    @StringProperty(indexingType = AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES)
-    val lowerAliases: List<String>,
-    @StringProperty(indexingType = AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_PREFIXES)
-    val upperAliases: List<String>,
-    @StringProperty(indexingType = AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_NONE)
-    val cover: String,
-    @LongProperty(indexingType = AppSearchSchema.LongPropertyConfig.INDEXING_TYPE_RANGE)
-    val year: Long,
-    @DocumentProperty
-    val creators: List<CreatorDocument>,
-    @DocumentProperty
-    val tracklist: List<TrackDocument>,
-    @StringProperty(indexingType = AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_NONE)
-    val fileName: String,
-    @Namespace
-    val namespace: String = MusicPlayerSearchManager.NAMESPACE,
-    @Id
+    val created: Long = 0L,
+    val aliases: List<String> = emptyList(),
+    val cover: String = "",
+    val year: Long = 0L,
+    val creators: List<CreatorDocument> = emptyList(),
+    val tracklist: List<TrackDocument> = emptyList(),
+    val fileName: String = "",
     val id: String = UUID.randomUUID().toString(),
 ) {
     override fun equals(other: Any?): Boolean {
@@ -51,17 +27,13 @@ data class AlbumDocument(
         var result = created.hashCode()
         result = 31 * result + year.hashCode()
         result = 31 * result + aliases.hashCode()
-        result = 31 * result + lowerAliases.hashCode()
-        result = 31 * result + upperAliases.hashCode()
         result = 31 * result + cover.hashCode()
         result = 31 * result + creators.hashCode()
         result = 31 * result + tracklist.hashCode()
         result = 31 * result + fileName.hashCode()
-        result = 31 * result + namespace.hashCode()
         result = 31 * result + id.hashCode()
         return result
     }
-
 
     fun getCreatedDate(): Calendar {
         return Calendar
@@ -83,17 +55,9 @@ data class AlbumDocument(
 
     companion object {
         fun createEmpty(): AlbumDocument {
-            return AlbumDocument(
-                created = 0L,
-                aliases = emptyList(),
-                lowerAliases = emptyList(),
-                upperAliases = emptyList(),
-                cover = "",
-                year = 0L,
-                creators = emptyList(),
-                tracklist = emptyList(),
-                fileName = "",
-            )
+            return AlbumDocument()
         }
+
+        const val UNKNOWN = "Unknown Album"
     }
 }

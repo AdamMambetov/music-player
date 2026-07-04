@@ -34,9 +34,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.musicplayer.MusicPlayerSearchManager
 import com.example.musicplayer.MusicPlayerViewModel
 import com.example.musicplayer.R
+import com.example.musicplayer.data.AlbumDocument
+import com.example.musicplayer.data.CreatorDocument
 import com.example.musicplayer.data.TrackDocument
 import kotlinx.coroutines.launch
 import my.nanihadesuka.compose.LazyColumnScrollbar
@@ -141,16 +142,16 @@ fun TrackListItem(
 ) {
     val name = trackInfo
         .aliases
-        .getOrElse(0) { "Unknown Music" }
-        .ifEmpty { "Unknown Music" }
+        .getOrElse(0) { TrackDocument.UNKNOWN }
+        .ifEmpty { TrackDocument.UNKNOWN }
     val artists = trackInfo
         .creators
-        .map { it.aliases.getOrElse(0) { "Unknow Artist" } }
-        .ifEmpty { listOf("Unknow Artist") }
+        .map { it.aliases.getOrElse(0) { CreatorDocument.UNKNOWN } }
+        .ifEmpty { listOf(CreatorDocument.UNKNOWN) }
         .joinToString(", ")
     val album = trackInfo
         .album
-        .ifEmpty { "Unknown Album" }
+        .ifEmpty { AlbumDocument.UNKNOWN }
 
     Card(
         modifier = Modifier
@@ -273,7 +274,6 @@ fun MusicPlayerScreenPreview() {
     MusicPlayerScreen(
         viewModel = MusicPlayerViewModel(
             context = LocalContext.current,
-            searchManager = MusicPlayerSearchManager(LocalContext.current),
         ),
         modifier = Modifier,
         trackList = listOf(

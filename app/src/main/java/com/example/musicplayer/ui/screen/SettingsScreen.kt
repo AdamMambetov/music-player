@@ -17,7 +17,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import com.example.musicplayer.MusicPlayerSearchManager
 import com.example.musicplayer.MusicPlayerViewModel
 import com.example.musicplayer.R
 
@@ -247,7 +246,6 @@ fun SettingsScreenPreview() {
     // Create a mock launcher that doesn't actually launch anything for preview
     SettingsScreen(viewModel = MusicPlayerViewModel(
         context = LocalContext.current,
-        searchManager = MusicPlayerSearchManager(LocalContext.current),
     )
     )
 }

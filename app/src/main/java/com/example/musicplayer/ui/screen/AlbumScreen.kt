@@ -28,7 +28,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.musicplayer.MusicPlayerSearchManager
 import com.example.musicplayer.MusicPlayerViewModel
 import com.example.musicplayer.R
 import com.example.musicplayer.data.AlbumDocument
@@ -55,8 +54,8 @@ fun AllAlbums(
             items(items = allAlbums, key = { it.id }) { album ->
                 val albumName = album
                     .aliases
-                    .getOrElse(0) { "Unknown Album" }
-                    .ifEmpty { "Unknown Album" }
+                    .getOrElse(0) { AlbumDocument.UNKNOWN }
+                    .ifEmpty { AlbumDocument.UNKNOWN }
 
                 Row(
                     modifier = Modifier
@@ -169,7 +168,6 @@ fun AlbumTracksPreview() {
     AlbumTracks(
         viewModel = MusicPlayerViewModel(
             context = LocalContext.current,
-            searchManager = MusicPlayerSearchManager(LocalContext.current),
         ),
         album = AlbumDocument.createEmpty().copy(
             aliases = listOf("Favorite Album"),

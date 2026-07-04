@@ -36,7 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
 import com.example.musicplayer.ui.theme.MusicPlayerTheme
 import androidx.core.net.toUri
@@ -63,8 +62,7 @@ class MainActivity : ComponentActivity() {
             object : ViewModelProvider.Factory {
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     return MusicPlayerViewModel(
-                        context = applicationContext,
-                        searchManager = MusicPlayerSearchManager(applicationContext)
+                        context = applicationContext
                     ) as T
                 }
             }
@@ -77,9 +75,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        // Start the music player service
+        // Start the music player service as foreground
         val serviceIntent = Intent(this, MusicPlayerService::class.java)
-        startService(serviceIntent)
+        startForegroundService(serviceIntent)
 
         setContent {
             MusicPlayerTheme {
@@ -325,8 +323,7 @@ fun MainScreens(
 @Preview(showBackground = true)
 fun MusicPlayerAppPreview() {
     MusicPlayerApp(MusicPlayerViewModel(
-        context = LocalContext.current,
-        searchManager = MusicPlayerSearchManager(LocalContext.current)
+        context = LocalContext.current
     ))
 }
 

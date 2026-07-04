@@ -3,7 +3,6 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     kotlin("plugin.serialization") version "1.4.20"
-    kotlin("kapt")
 }
 
 android {
@@ -60,14 +59,8 @@ dependencies {
     implementation(libs.androidx.media3.ui)
     implementation(libs.lazycolumnscrollbar)
     implementation("io.coil-kt.coil3:coil-compose:3.0.0")
+    implementation("org.postgresql:postgresql:42.7.4")
     testImplementation(libs.junit)
-
-
-    // AppSearch https://developer.android.com/develop/ui/views/search/appsearch#kts
-    val appsearch_version = "1.1.0"
-    implementation("androidx.appsearch:appsearch:$appsearch_version")
-    kapt("androidx.appsearch:appsearch-compiler:$appsearch_version")
-    implementation("androidx.appsearch:appsearch-local-storage:$appsearch_version")
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

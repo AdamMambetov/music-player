@@ -39,9 +39,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import coil3.compose.AsyncImage
-import com.example.musicplayer.MusicPlayerSearchManager
 import com.example.musicplayer.MusicPlayerViewModel
 import com.example.musicplayer.R
+import com.example.musicplayer.data.AlbumDocument
+import com.example.musicplayer.data.CreatorDocument
 import com.example.musicplayer.data.PlaylistDocument
 import com.example.musicplayer.data.TrackDocument
 
@@ -67,20 +68,20 @@ fun MusicInfoScreen(
     val name = viewModel
         .currentTrack
         .aliases
-        .getOrElse(index = 0) { "Unknown Track" }
-        .ifEmpty { "Unknown Track" }
+        .getOrElse(index = 0) { TrackDocument.UNKNOWN }
+        .ifEmpty { TrackDocument.UNKNOWN }
     val artists = viewModel
         .currentTrack
         .creators.joinToString(separator = ", ") {
             it.aliases
-                .getOrElse(index = 0) { "Unknow Artist" }
-                .ifEmpty { "Unknow Artist" }
+                .getOrElse(index = 0) { CreatorDocument.UNKNOWN }
+                .ifEmpty { CreatorDocument.UNKNOWN }
         }
-        .ifEmpty { "Unknow Artist" }
+        .ifEmpty { CreatorDocument.UNKNOWN }
     val album = viewModel
         .currentTrack
         .album
-        .ifEmpty { "Unknown Album" }
+        .ifEmpty { AlbumDocument.UNKNOWN }
     val coverUri = viewModel.getCoverUri(
         coverString = viewModel.currentTrack.cover,
     )
@@ -331,7 +332,7 @@ fun AddToPlaylistDialog(
                         }
                     )
                     Text(
-                        text = playlist.aliases.getOrElse(0) { "Unknown Playlist" },
+                        text = playlist.aliases.getOrElse(0) { PlaylistDocument.UNKNOWN },
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(10.dp),
@@ -350,7 +351,6 @@ fun MusicInfoScreenPreview() {
     MusicInfoScreen(
         viewModel = MusicPlayerViewModel(
             context = LocalContext.current,
-            searchManager = MusicPlayerSearchManager(LocalContext.current),
         ),
     )
 }

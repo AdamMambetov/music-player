@@ -12,9 +12,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.musicplayer.MusicPlayerSearchManager
 import com.example.musicplayer.MusicPlayerViewModel
 import com.example.musicplayer.R
+import com.example.musicplayer.data.CreatorDocument
 import com.example.musicplayer.data.TrackDocument
 import kotlin.collections.ifEmpty
 import kotlin.collections.joinToString
@@ -57,11 +57,11 @@ fun SearchScreen(
         LazyColumn {
             items(musicState.trackList) { track ->
                 val aliases = track.aliases
-                    .getOrElse(0) { "Unknown Music" }
-                    .ifEmpty { "Unknown Music" }
+                    .getOrElse(0) { TrackDocument.UNKNOWN }
+                    .ifEmpty { TrackDocument.UNKNOWN }
                 val creators = track.creators
-                    .map { it.aliases.getOrElse(0) { "Unknow Artist" } }
-                    .ifEmpty { listOf("Unknow Artist") }
+                    .map { it.aliases.getOrElse(0) { CreatorDocument.UNKNOWN } }
+                    .ifEmpty { listOf(CreatorDocument.UNKNOWN) }
                     .joinToString(", ")
 
                 Column(
@@ -86,7 +86,6 @@ fun SearchScreenPreview() {
     SearchScreen(
         viewModel = MusicPlayerViewModel(
             context = LocalContext.current,
-            searchManager = MusicPlayerSearchManager(LocalContext.current),
         ),
         onTrackSelected = {},
     )

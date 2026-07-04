@@ -1,11 +1,11 @@
 package com.example.musicplayer
 
 import android.annotation.SuppressLint
+import android.content.ComponentName
 import android.content.Context
 import android.os.CountDownTimer
 import android.util.Log
 import android.widget.Toast
-import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -16,16 +16,17 @@ import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
 import com.example.musicplayer.data.AlbumDocument
 import com.example.musicplayer.data.CreatorDocument
+import com.example.musicplayer.data.MusicRepository
 import com.example.musicplayer.data.PlaylistDocument
+import com.example.musicplayer.data.PostgresDataSource
 import com.example.musicplayer.data.TrackDocument
 import com.example.musicplayer.data.TrackListState
 import com.example.musicplayer.mdreader.MarkdownReader
@@ -35,8 +36,7 @@ import kotlinx.coroutines.Job
 import kotlin.random.Random
 
 class MusicPlayerViewModel(
-    @field:SuppressLint("StaticFieldLeak") val context: Context,
-    val searchManager: MusicPlayerSearchManager
+    @field:SuppressLint("StaticFieldLeak") val context: Context
 ) : ViewModel() {
     var isPlaying by mutableStateOf(false)
         private set
@@ -95,12 +95,6 @@ class MusicPlayerViewModel(
     var musicState by mutableStateOf(TrackListState())
         private set
 
-    val pathHelper = PathHelper(context = context)
-
-    val markdownReader = MarkdownReader(pathHelper = pathHelper)
-
-    val mediaReader = MediaReader(context = context)
-
     private var coverUris = mutableMapOf<String, String>()
 
     private var playerTimer: CountDownTimer? = null
@@ -110,210 +104,113 @@ class MusicPlayerViewModel(
     private var searchJob: Job? = null
     private var scanJob: Job? = null
 
-    // private var _mediaController: MediaController? = null
-    private var _exoPlayer: ExoPlayer? = null
+    private var _mediaController: MediaController? = null
+
+    val pathHelper = PathHelper(context = context)
+    private val markdownReader = MarkdownReader(pathHelper = pathHelper)
+    private val mediaReader = MediaReader(context = context)
+    private val postgres = PostgresDataSource()
+
+    val repository = MusicRepository(
+        markdownReader = markdownReader,
+        postgres = postgres,
+        mediaReader = mediaReader,
+        pathHelper = pathHelper
+    )
 
     init {
+        onNextTrack = { nextTrack() }
+        onPreviousTrack = { previousTrack() }
         viewModelScope.launch {
-            searchManager.init()
+            repository.connectPostgres()
             loadAllFromCache()
-            scanCovers()
         }
     }
 
     override fun onCleared() {
-//        _mediaController?.release()
-        _exoPlayer?.release()
+        onNextTrack = null
+        onPreviousTrack = null
+        _mediaController?.release()
+        _mediaController = null
         searchJob?.cancel()
         searchJob = null
         scanJob?.cancel()
         scanJob = null
         isScan = false
-        searchManager.closeSession()
+        postgres.close()
         super.onCleared()
     }
 
-    @OptIn(UnstableApi::class)
+    @androidx.annotation.OptIn(UnstableApi::class)
     fun initializePlayer() {
-        _exoPlayer = ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(context))
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                    .build(),
-                true // Handle audio focus automatically
-            )
-            .setHandleAudioBecomingNoisy(true)
-            .build()
-        _exoPlayer?.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                this@MusicPlayerViewModel.isPlaying = isPlaying
-                if (isPlaying)
-                    startTimer()
-                else
-                    playerTimer?.cancel()
-            }
+        val sessionToken = SessionToken(
+            context,
+            ComponentName(context, MusicPlayerService::class.java)
+        )
+        val controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
 
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                super.onPlaybackStateChanged(playbackState)
+        controllerFuture.addListener({
+            _mediaController = controllerFuture.get()
 
-                if (playbackState == Player.STATE_READY) {
-                    duration = _exoPlayer?.duration ?: 0L
-                    lastListenModifiedTimeInMillis = duration
+            _mediaController?.addListener(object : Player.Listener {
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    this@MusicPlayerViewModel.isPlaying = isPlaying
+                    if (isPlaying)
+                        startTimer()
+                    else
+                        playerTimer?.cancel()
                 }
-                if (playbackState == Player.STATE_ENDED) {
-                    nextTrack()
-                    lastListenModifiedTimeInMillis = Long.MAX_VALUE
-                    playerTimer?.cancel()
+
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    super.onPlaybackStateChanged(playbackState)
+
+                    if (playbackState == Player.STATE_READY) {
+                        duration = _mediaController?.duration ?: 0L
+                        lastListenModifiedTimeInMillis = duration
+                    }
+                    if (playbackState == Player.STATE_ENDED) {
+                        nextTrack()
+                        lastListenModifiedTimeInMillis = Long.MAX_VALUE
+                        playerTimer?.cancel()
+                    }
                 }
-            }
 
-            override fun onPositionDiscontinuity(
-                oldPosition: Player.PositionInfo,
-                newPosition: Player.PositionInfo,
-                reason: Int
-            ) {
-                super.onPositionDiscontinuity(oldPosition, newPosition, reason)
-                currentPosition = _exoPlayer?.currentPosition ?: 0L
-                Log.d("TAG", "onPositionDiscontinuity: $oldPosition - $newPosition")
-            }
-        })
-        _exoPlayer?.prepare()
-
-        viewModelScope.launch {
-//            val sessionToken = SessionToken(context, ComponentName(context, MusicPlayerService::class.java))
-//            val controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
-            
-//            controllerFuture.addListener({
-//                _mediaController = controllerFuture.get()
-//
-//                // Add listener to update position and duration
-//                _mediaController?.addListener(object : Player.Listener {
-//                    override fun onIsPlayingChanged(isPlaying: Boolean) {
-//                        this@MusicPlayerViewModel.isPlaying = isPlaying
-//                        if (isPlaying)
-//                            startTimer(context)
-//                        else
-//                            playerTimer?.cancel()
-//                    }
-//
-//                    override fun onPlaybackStateChanged(playbackState: Int) {
-//                        super.onPlaybackStateChanged(playbackState)
-//
-//                        if (playbackState == Player.STATE_READY) {
-//                            duration = _mediaController?.duration ?: 0L
-//                            lastListenModifiedTimeInMillis = duration
-//                        }
-//                        if (playbackState == Player.STATE_ENDED) {
-//                            nextTrack()
-//                            lastListenModifiedTimeInMillis = Long.MAX_VALUE
-//                            playerTimer?.cancel()
-//                        }
-//                    }
-//
-//                    override fun onPositionDiscontinuity(
-//                        oldPosition: Player.PositionInfo,
-//                        newPosition: Player.PositionInfo,
-//                        reason: Int
-//                    ) {
-//                        super.onPositionDiscontinuity(oldPosition, newPosition, reason)
-//                        currentPosition = _mediaController?.currentPosition ?: 0L
-//                        Log.d("TAG", "onPositionDiscontinuity: $oldPosition - $newPosition")
-//                    }
-//                })
-//            }, { it.run() })
-        }
+                override fun onPositionDiscontinuity(
+                    oldPosition: Player.PositionInfo,
+                    newPosition: Player.PositionInfo,
+                    reason: Int
+                ) {
+                    super.onPositionDiscontinuity(oldPosition, newPosition, reason)
+                    currentPosition = _mediaController?.currentPosition ?: 0L
+                    Log.d(TAG, "onPositionDiscontinuity: $oldPosition - $newPosition")
+                }
+            })
+        }, { it.run() })
     }
 
     fun scanAll(clearCache: Boolean) {
-        Log.d("TAG", "Rescan start")
+        Log.d(TAG, "Rescan start")
         scanJob?.cancel()
-        scanJob = viewModelScope.launch(context = Dispatchers.IO) {
+        scanJob = viewModelScope.launch {
             isScan = true
-            if (clearCache) {
-                searchManager.removeTracks(searchManager.searchAllTracks())
-                searchManager.removeCreators(searchManager.searchAllCreators())
-                searchManager.removeAlbums(searchManager.searchAllAlbums())
-                searchManager.removePlayLists(searchManager.searchAllPlaylists())
-                allCreators.clear()
-                allTracks.clear()
-                allAlbums.clear()
-                allPlaylists.clear()
-            }
-
-            val creators = markdownReader
-                .scanCreators()
-                .map { creator ->
-                    val oldCreator = allCreators.find { it == creator }
-                    return@map if (oldCreator == null)
-                        creator
-                    else
-                        creator.copy(id = oldCreator.id)
-                }
+            val result = repository.scanAll(clearCache)
 
             allCreators.clear()
-            searchManager.putCreators(creators)
-            allCreators.addAll(creators)
-            Log.d("TAG", "Finish scan creators from markdown ${creators.size}")
+            allCreators.addAll(result.creators)
 
-            val sourceFileUris = mediaReader.scanAudio(
-                uri = pathHelper.getTracksFolderPath().toUri(),
-            )
-            val tracks = markdownReader
-                .scanTracks(allCreators)
-                .sortedByDescending { it.created }
-                .map { track ->
-                    val sourceUri = sourceFileUris[track.sourceFile]
-                    val oldTrack = allTracks.find { it == track }
-                    return@map if (oldTrack == null)
-                        track.copy(sourceUri = sourceUri ?: "")
-                    else
-                        track.copy(
-                            id = oldTrack.id,
-                            sourceUri = sourceUri ?: oldTrack.sourceUri,
-                        )
-                }
-            Log.d("TAG", "Finish scan tracks from markdown ${tracks.size}")
-
-            searchManager.putTracks(tracks)
             allTracks.clear()
-            allTracks.addAll(tracks)
-            Log.d("TAG", "Finish scan tracks")
+            allTracks.addAll(result.tracks)
 
-            val albums = markdownReader
-                .scanAlbums(allCreators, allTracks)
-                .map { album ->
-                    val oldAlbum = allAlbums.find { it == album }
-                    return@map if (oldAlbum == null)
-                        album
-                    else
-                        album.copy(id = oldAlbum.id)
-                }
-
-            searchManager.putAlbums(albums)
             allAlbums.clear()
-            allAlbums.addAll(albums)
-            Log.d("TAG", "Finish scan albums from markdown ${albums.size}")
+            allAlbums.addAll(result.albums)
 
-            val playlists = markdownReader
-                .scanPlaylists(allTracks)
-                .map { playlist ->
-                    val oldPlaylist = allPlaylists.find { it == playlist }
-                    return@map if (oldPlaylist == null)
-                        playlist
-                    else
-                        playlist.copy(id = oldPlaylist.id)
-                }
-
-            searchManager.putPlaylists(playlists)
             allPlaylists.clear()
-            allPlaylists.addAll(playlists)
-            favorites = allPlaylists.find {
-                it.aliases.getOrElse(0) { false } == "Favorites"
-            } ?: favorites
-            Log.d("TAG", "Finish scan playlists from markdown ${playlists.size}")
-            Log.d("TAG", "Rescan end")
+            allPlaylists.addAll(result.playlists)
+
+            favorites = result.favorites ?: favorites
+
+            Log.d(TAG, "Rescan end: ${result.tracks.size} tracks, ${result.creators.size} creators, ${result.albums.size} albums, ${result.playlists.size} playlists")
+            scanCovers()
             isScan = false
         }
     }
@@ -322,37 +219,31 @@ class MusicPlayerViewModel(
         scanJob?.cancel()
         scanJob = viewModelScope.launch(context = Dispatchers.IO) {
             isScan = true
+
+            val creators = repository.loadAllCreators()
             allCreators.clear()
-            allCreators.addAll(searchManager.searchAllCreators())
-            Log.d("TAG", "Finish scan creators from cache ${allCreators.size}")
+            allCreators.addAll(creators)
+            Log.d(TAG, "Loaded creators: ${creators.size}")
 
+            val tracks = repository.loadAllTracks(creators)
             allTracks.clear()
-            val sourceFileUris = mediaReader.scanAudio(
-                uri = pathHelper.getTracksFolderPath().toUri(),
-            )
-            val tracks = searchManager
-                .searchAllTracks()
-                .map { track ->
-                    val sourceUri = sourceFileUris[track.sourceFile]
-                    return@map if (sourceUri == null)
-                        track
-                    else
-                        track.copy(sourceUri = sourceUri)
-                }
-
             allTracks.addAll(tracks)
-            Log.d("TAG", "Finish scan tracks from cache ${allTracks.size}")
+            Log.d(TAG, "Loaded tracks: ${tracks.size}")
 
+            val albums = repository.loadAllAlbums(creators, tracks)
             allAlbums.clear()
-            allAlbums.addAll(searchManager.searchAllAlbums())
-            Log.d("TAG", "Finish scan albums from cache ${allAlbums.size}")
+            allAlbums.addAll(albums)
+            Log.d(TAG, "Loaded albums: ${albums.size}")
 
+            val playlists = repository.loadAllPlaylists(tracks)
             allPlaylists.clear()
-            allPlaylists.addAll(searchManager.searchAllPlaylists())
+            allPlaylists.addAll(playlists)
             favorites = allPlaylists.find {
                 it.aliases.getOrElse(0) { "" } == "Favorites"
             } ?: favorites
-            Log.d("TAG", "Finish scan playlists from cache ${allPlaylists.size} ${favorites.tracklist.size}")
+            Log.d(TAG, "Loaded playlists: ${playlists.size}, favorites: ${favorites.tracklist.size}")
+
+            scanCovers()
             isScan = false
         }
     }
@@ -361,16 +252,28 @@ class MusicPlayerViewModel(
         val notePath = pathHelper.getNotesFolderPath()
         val uri = "$notePath%2F${PathHelper.COVERS_FOLDER_NAME_IN_NOTES}".toUri()
         coverUris = mediaReader.scanCovers(uri = uri).toMutableMap()
-        coverUris.put("", getCoverUri(coverString = "_No Album Art.jpg"))
+        coverUris[""] = getCoverUri(coverString = "_No Album Art.jpg")
+
+        MusicPlayerService.coverUriMap.clear()
+        allTracks.forEach { track ->
+            if (track.sourceUri.isNotEmpty()) {
+                val coverPath = coverUris[track.cover]
+                if (!coverPath.isNullOrEmpty()) {
+                    MusicPlayerService.coverUriMap[track.sourceUri] = coverPath
+                }
+            }
+        }
+        Log.d(TAG, "Cover map populated: ${MusicPlayerService.coverUriMap.size} entries")
     }
 
     fun getCoverUri(coverString: String): String {
         return coverUris[coverString] ?: ""
     }
 
+    @androidx.annotation.OptIn(UnstableApi::class)
     fun setMediaSourceWithService(track: TrackDocument) {
         if (track.id != currentTrack.id) {
-            Log.d("TAG", "Source Uri: ${track.sourceUri}")
+            Log.d(TAG, "Source Uri: ${track.sourceUri}")
             currentTrack = track
             isFavorite = favorites.tracklist.find { it == track } != null
             currentQueueIndex = currentQueue.indexOf(currentTrack)
@@ -378,8 +281,36 @@ class MusicPlayerViewModel(
                 randomQueueIndex = randomQueue.indexOf(currentTrack)
             }
             try {
-                _exoPlayer?.setMediaItem(MediaItem.fromUri(track.sourceUri))
-            } catch (_: Exception) {
+                val trackName = track.aliases.getOrElse(0) { "" }
+                val artistName = track.creators.joinToString(", ") {
+                    it.aliases.getOrElse(0) { CreatorDocument.UNKNOWN }
+                }
+                val albumName = track.album.ifEmpty { AlbumDocument.UNKNOWN }
+
+                val mediaItem = MediaItem.Builder()
+                    .setUri(track.sourceUri.toUri())
+                    .setMediaMetadata(
+                        MediaMetadata.Builder()
+                            .setTitle(trackName)
+                            .setArtist(artistName)
+                            .setAlbumTitle(albumName)
+                            .setExtras(
+                                android.os.Bundle().apply {
+                                    putString("track_id", track.id)
+                                }
+                            )
+                            .build()
+                    )
+                    .build()
+
+                _mediaController?.let { controller ->
+                    controller.setMediaItem(mediaItem)
+                    controller.prepare()
+                    controller.play()
+                } ?: run {
+                    Toast.makeText(context, "Service not connected", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
                 Toast.makeText(context, "SourceFile не валидный!", Toast.LENGTH_SHORT).show()
                 nextTrack()
             }
@@ -391,7 +322,7 @@ class MusicPlayerViewModel(
             return
         playerTimer?.cancel()
         playerTimer = object : CountDownTimer(
-            duration-currentPosition, 100L
+            duration - currentPosition, 100L
         ) {
             override fun onFinish() {
                 currentPosition = duration
@@ -403,14 +334,8 @@ class MusicPlayerViewModel(
                 if (lastListenModifiedTimeInMillis - millisUntilFinished >= 1000L) {
                     lastListenModifiedTimeInMillis = millisUntilFinished
                     currentTrack.listenInSec++
-                    markdownReader.saveTrack(currentTrack)
-                    currentTrack.creators.forEach {
-                        it.listenInSec++
-                        markdownReader.saveCreator(creator = it)
-                    }
                     viewModelScope.launch {
-                        searchManager.putTracks(listOf(currentTrack))
-                        searchManager.putCreators(currentTrack.creators)
+                        repository.incrementListen(currentTrack, currentTrack.creators)
                     }
                 }
             }
@@ -419,19 +344,19 @@ class MusicPlayerViewModel(
     }
 
     fun play() {
-        _exoPlayer?.play()
+        _mediaController?.play()
         isPlaying = true
         startTimer()
     }
 
     fun pause() {
-        _exoPlayer?.pause()
+        _mediaController?.pause()
         isPlaying = false
         playerTimer?.cancel()
     }
 
     fun seekTo(position: Long) {
-        _exoPlayer?.seekTo(position)
+        _mediaController?.seekTo(position)
         currentPosition = position
         lastListenModifiedTimeInMillis = duration - currentPosition
         if (isPlaying)
@@ -441,7 +366,7 @@ class MusicPlayerViewModel(
     fun nextTrack() {
         val queue = if (isShuffle) randomQueue else currentQueue
         val index = if (isShuffle) randomQueueIndex else currentQueueIndex
-        Log.d("TAG", "nextTrack $queue, $index")
+        Log.d(TAG, "nextTrack $queue, $index")
 
         setMediaSourceWithService(
             queue.getOrElse(index + 1) { return }
@@ -479,8 +404,7 @@ class MusicPlayerViewModel(
 
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-//            delay(500L)
-            val musicList = searchManager.searchTracks(query)
+            val musicList = repository.searchTracks(query)
             musicState = musicState.copy(trackList = musicList)
         }
     }
@@ -519,9 +443,15 @@ class MusicPlayerViewModel(
         if (index == -1)
             return
         allPlaylists[index].tracklist = playlist.tracklist
-        viewModelScope.launch(Dispatchers.IO) {
-            markdownReader.savePlaylist(allPlaylists[index])
-            searchManager.putPlaylists(listOf(allPlaylists[index]))
+        viewModelScope.launch {
+            repository.savePlaylist(allPlaylists[index])
         }
+    }
+
+    companion object {
+        private const val TAG = "MusicPlayerViewModel"
+
+        var onNextTrack: (() -> Unit)? = null
+        var onPreviousTrack: (() -> Unit)? = null
     }
 }
