@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.ListenableFuture
 class MusicPlayerService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var exoPlayer: ExoPlayer? = null
+    private var normalizer: LoudnessNormalizer? = null
     private val handler = Handler(Looper.getMainLooper())
     private var notificationManager: NotificationManager? = null
     private var notificationStarted = false
@@ -125,6 +126,15 @@ class MusicPlayerService : MediaSessionService() {
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
+
+        // Нормализация громкости через DynamicsProcessing
+        exoPlayer?.let { player ->
+            normalizer = LoudnessNormalizer(player.audioSessionId).apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    enable()
+                }
+            }
+        }
 
         exoPlayer?.addListener(playerListener)
 
@@ -312,6 +322,9 @@ class MusicPlayerService : MediaSessionService() {
 
     override fun onDestroy() {
         exoPlayer?.removeListener(playerListener)
+
+        normalizer?.release()
+        normalizer = null
 
         mediaSession?.let { session ->
             session.release()

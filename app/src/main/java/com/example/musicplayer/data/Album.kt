@@ -1,11 +1,13 @@
 package com.example.musicplayer.data
 
 import androidx.compose.runtime.Stable
+import kotlinx.serialization.Serializable
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
 
+@Serializable
 @Stable
 data class AlbumDocument(
     val created: Long = 0L,
@@ -44,7 +46,7 @@ data class AlbumDocument(
 
     fun getCreatedString(): String {
         return SimpleDateFormat(
-            "yyyy-MM-dd'T'HH:mm:ssZ",
+            "yyyy-MM-dd'T'HH:mm:ssXXX",
             Locale.getDefault()
         ).format(getCreatedDate().time)
     }

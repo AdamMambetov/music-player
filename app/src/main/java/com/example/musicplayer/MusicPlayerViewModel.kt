@@ -122,7 +122,13 @@ class MusicPlayerViewModel(
         onNextTrack = { nextTrack() }
         onPreviousTrack = { previousTrack() }
         viewModelScope.launch {
-            repository.connectPostgres()
+            try {
+                Log.d(TAG, "Starting PostgreSQL connection...")
+                repository.connectPostgres()
+                Log.d(TAG, "PostgreSQL connection finished")
+            } catch (e: Exception) {
+                Log.e(TAG, "PostgreSQL connection failed", e)
+            }
             loadAllFromCache()
         }
     }

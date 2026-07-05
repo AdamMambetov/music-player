@@ -58,7 +58,12 @@ fun MusicInfoScreen(
     val currentPosition = viewModel.currentPosition
     val duration = viewModel.duration
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
-    
+
+    val trackId = viewModel.currentTrack.id
+    val coverUri = remember(trackId) {
+        viewModel.getCoverUri(coverString = viewModel.currentTrack.cover)
+    }
+
     LaunchedEffect(key1 = Unit) {
         if (!isPlaying) {
             viewModel.play()
@@ -82,9 +87,6 @@ fun MusicInfoScreen(
         .currentTrack
         .album
         .ifEmpty { AlbumDocument.UNKNOWN }
-    val coverUri = viewModel.getCoverUri(
-        coverString = viewModel.currentTrack.cover,
-    )
 
     if (showAddToPlaylistDialog)
         AddToPlaylistDialog(
@@ -118,7 +120,6 @@ fun MusicInfoScreen(
                 .padding(bottom = 32.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Back button
             IconButton(onClick = { onBackClicked() }) {
                 Icon(
                     painter = painterResource(R.drawable.back),
@@ -126,7 +127,6 @@ fun MusicInfoScreen(
                     modifier = Modifier.size(32.dp)
                 )
             }
-            // Add to playlist button
             IconButton(onClick = { showAddToPlaylistDialog = true }) {
                 Icon(
                     painter = painterResource(R.drawable.add_link),
@@ -139,28 +139,13 @@ fun MusicInfoScreen(
         AsyncImage(
             model = coverUri,
             contentDescription = null,
-            modifier = Modifier
-                .size(250.dp),
+            modifier = Modifier.size(250.dp),
         )
-        // Album art placeholder
-//        Box(
-//            modifier = Modifier
-//                .size(250.dp)
-//                .padding(16.dp)
-//                .background(Color.LightGray)
-//        ) {
-//            Text(
-//                text = "Album Art",
-//                textAlign = TextAlign.Center,
-//                fontSize = 16.sp
-//            )
-//        }
 
         Text(text = viewModel.currentTrack.listenInSec.toString())
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Track info
         Text(
             text = name,
             fontSize = 24.sp,
@@ -182,17 +167,30 @@ fun MusicInfoScreen(
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        // Progress slider
-        Slider(
-            valueRange = 0f..duration.toFloat(),
-            value = currentPosition.toFloat(),
-            onValueChange = {
-                viewModel.seekTo(it.toLong())
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = formatTime(currentPosition),
+                fontSize = 12.sp,
+                color = Color.Gray,
+            )
+            Slider(
+                valueRange = 0f..duration.toFloat(),
+                value = currentPosition.toFloat(),
+                onValueChange = { viewModel.seekTo(it.toLong()) },
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp)
+            )
+            Text(
+                text = formatTime(duration),
+                fontSize = 12.sp,
+                color = Color.Gray,
+            )
+        }
 
-        // Player controls
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -265,6 +263,13 @@ fun MusicInfoScreen(
             }
         }
     }
+}
+
+private fun formatTime(ms: Long): String {
+    val totalSeconds = ms / 1000
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "%d:%02d".format(minutes, seconds)
 }
 
 @Composable

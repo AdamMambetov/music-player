@@ -18,8 +18,8 @@ class MusicRepository(
         private const val TAG = "MusicRepository"
     }
 
-    fun connectPostgres(): Boolean {
-        return postgres.connect()
+    suspend fun connectPostgres(): Boolean = withContext(Dispatchers.IO) {
+        postgres.connect()
     }
 
     // ==================== Load ====================

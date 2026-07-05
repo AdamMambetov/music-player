@@ -1,11 +1,13 @@
 package com.example.musicplayer.data
 
 import androidx.compose.runtime.Stable
+import kotlinx.serialization.Serializable
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
 
+@Serializable
 @Stable
 data class TrackDocument(
     val created: Long = 0L,
