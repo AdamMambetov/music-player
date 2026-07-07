@@ -54,6 +54,7 @@ fun MusicInfoScreen(
 ) {
     val isPlaying = viewModel.isPlaying
     val isShuffle = viewModel.isShuffle
+    val isRepeat = viewModel.isRepeat
     val isFavorite = viewModel.isFavorite
     val currentPosition = viewModel.currentPosition
     val duration = viewModel.duration
@@ -208,6 +209,20 @@ fun MusicInfoScreen(
                     contentDescription = "Shuffle",
                     modifier = Modifier.size(64.dp),
                     tint = if (isShuffle) Color.Unspecified else Color.LightGray
+                )
+            }
+
+            IconButton(
+                onClick = {
+                    if (isRepeat) viewModel.disableRepeat()
+                    else viewModel.enableRepeat()
+                }
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.repeat_one),
+                    contentDescription = "Repeat",
+                    modifier = Modifier.size(64.dp),
+                    tint = if (isRepeat) Color.Unspecified else Color.LightGray
                 )
             }
 

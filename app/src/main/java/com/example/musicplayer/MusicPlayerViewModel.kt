@@ -44,6 +44,9 @@ class MusicPlayerViewModel(
     var isShuffle by mutableStateOf(false)
         private set
 
+    var isRepeat by mutableStateOf(false)
+        private set
+
     var isFavorite by mutableStateOf(false)
         private set
 
@@ -175,9 +178,14 @@ class MusicPlayerViewModel(
                         lastListenModifiedTimeInMillis = duration
                     }
                     if (playbackState == Player.STATE_ENDED) {
-                        nextTrack()
-                        lastListenModifiedTimeInMillis = Long.MAX_VALUE
-                        playerTimer?.cancel()
+                        if (isRepeat) {
+                            seekTo(0L)
+                            play()
+                        } else {
+                            nextTrack()
+                            lastListenModifiedTimeInMillis = Long.MAX_VALUE
+                            playerTimer?.cancel()
+                        }
                     }
                 }
 
@@ -282,6 +290,10 @@ class MusicPlayerViewModel(
             Log.d(TAG, "Source Uri: ${track.sourceUri}")
             currentTrack = track
             isFavorite = favorites.tracklist.find { it == track } != null
+            if (track.sourceUri.isEmpty()) {
+                Log.w(TAG, "Track ${track.id} has no source URI, cannot play")
+                return
+            }
             currentQueueIndex = currentQueue.indexOf(currentTrack)
             if (isShuffle) {
                 randomQueueIndex = randomQueue.indexOf(currentTrack)
@@ -331,8 +343,13 @@ class MusicPlayerViewModel(
             duration - currentPosition, 100L
         ) {
             override fun onFinish() {
-                currentPosition = duration
-                lastListenModifiedTimeInMillis = 0L
+                if (isRepeat) {
+                    seekTo(0L)
+                    play()
+                } else {
+                    currentPosition = duration
+                    lastListenModifiedTimeInMillis = 0L
+                }
             }
 
             override fun onTick(millisUntilFinished: Long) {
@@ -340,6 +357,19 @@ class MusicPlayerViewModel(
                 if (lastListenModifiedTimeInMillis - millisUntilFinished >= 1000L) {
                     lastListenModifiedTimeInMillis = millisUntilFinished
                     currentTrack.listenInSec++
+                    val trackId = currentTrack.id
+                    val idx = allTracks.indexOfFirst { it.id == trackId }
+                    if (idx >= 0) {
+                        allTracks[idx] = currentTrack
+                    }
+                    allPlaylists.forEach { playlist ->
+                        val tIdx = playlist.tracklist.indexOfFirst { it.id == trackId }
+                        if (tIdx >= 0) {
+                            playlist.tracklist = playlist.tracklist.toMutableList().also {
+                                it[tIdx] = currentTrack
+                            }
+                        }
+                    }
                     viewModelScope.launch {
                         repository.incrementListen(currentTrack, currentTrack.creators)
                     }
@@ -399,6 +429,14 @@ class MusicPlayerViewModel(
         isShuffle = false
         randomQueue.clear()
         randomQueueIndex = -1
+    }
+
+    fun enableRepeat() {
+        isRepeat = true
+    }
+
+    fun disableRepeat() {
+        isRepeat = false
     }
 
     fun setQueueToDefault() {

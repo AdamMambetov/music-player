@@ -170,8 +170,16 @@ class MusicRepository(
         val trackIds = results.filter { it.entityType == "track" }.map { it.entityId }.distinct()
         if (trackIds.isEmpty()) return@withContext emptyList()
 
+        val sourceFileUris = mediaReader.scanAudio(
+            uri = pathHelper.getTracksFolderPath().toUri()
+        )
         val tracksById = postgres.getAllTracks().associateBy { it.id }
-        trackIds.mapNotNull { tracksById[it] }
+        trackIds.mapNotNull { id ->
+            tracksById[id]?.let { track ->
+                val sourceUri = sourceFileUris[track.sourceFile]
+                if (sourceUri != null) track.copy(sourceUri = sourceUri) else track
+            }
+        }
     }
 
     suspend fun searchCreators(query: String): List<CreatorDocument> = withContext(Dispatchers.IO) {
