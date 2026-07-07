@@ -198,14 +198,14 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
 
         val yamlMap = mapOf(
             CREATED_KEY         to  track.getCreatedString(),
-            ALIASES_KEY         to  listToStringArray(track.aliases),
+            ALIASES_KEY         to  toYamlList(track.aliases),
             COVER_KEY           to  toLink(track.cover),
             YEAR_KEY            to  track.year.toString(),
             ALBUM_KEY           to  toLink(track.album),
-            CREATORS_KEY        to  listToStringArray(
+            CREATORS_KEY        to  toYamlList(
                                         list = track.creators.map { toLink(it.fileName) }),
             NUMBER_IN_ALBUM_KEY to  track.numberInAlbum.toString(),
-            RELATED_KEY         to  listToStringArray(
+            RELATED_KEY         to  toYamlList(
                                         list = track.related.map { toLink(it) }),
             SOURCE_FILE_KEY     to  toLink(track.sourceFile),
             LISTEN_IN_SEC_KEY   to  track.listenInSec.toString(),
@@ -226,7 +226,7 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
 
         val yamlMap = mapOf(
             CREATED_KEY         to  creator.getCreatedString(),
-            ALIASES_KEY         to  listToStringArray(creator.aliases),
+            ALIASES_KEY         to  toYamlList(creator.aliases),
             LISTEN_IN_SEC_KEY   to  creator.listenInSec.toString(),
         )
         saveMarkdown(file, yamlMap)
@@ -244,12 +244,12 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
 
         val yamlMap = mapOf(
             CREATED_KEY     to  album.getCreatedString(),
-            ALIASES_KEY     to  listToStringArray(album.aliases),
+            ALIASES_KEY     to  toYamlList(album.aliases),
             COVER_KEY       to  toLink(album.cover),
             YEAR_KEY        to  album.year.toString(),
-            CREATORS_KEY    to  listToStringArray(
+            CREATORS_KEY    to  toYamlList(
                                     list = album.creators.map { toLink(it.fileName) }),
-            TRACKLIST_KEY   to  listToStringArray(
+            TRACKLIST_KEY   to  toYamlList(
                                     list = album.tracklist.map { toLink(it.fileName) }),
         )
         saveMarkdown(file, yamlMap)
@@ -267,8 +267,8 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
 
         val yamlMap = mapOf(
             CREATED_KEY     to  playlist.getCreatedString(),
-            ALIASES_KEY     to  listToStringArray(playlist.aliases),
-            TRACKLIST_KEY   to  listToStringArray(
+            ALIASES_KEY     to  toYamlList(playlist.aliases),
+            TRACKLIST_KEY   to  toYamlList(
                                     list = playlist.tracklist.map { toLink(it.fileName) }),
         )
         saveMarkdown(file, yamlMap)

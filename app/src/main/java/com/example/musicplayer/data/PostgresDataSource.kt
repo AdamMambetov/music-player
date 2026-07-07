@@ -1,6 +1,8 @@
 package com.example.musicplayer.data
 
 import android.util.Log
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import java.sql.Connection
 import java.sql.DriverManager
@@ -40,7 +42,7 @@ class PostgresDataSource(
             stmt?.close()
 
             initAge()
-            createSearchTable()
+            createTables()
             true
         } catch (e: java.sql.SQLException) {
             Log.e(TAG, "SQL Error: ${e.message}")
@@ -75,7 +77,6 @@ class PostgresDataSource(
         try {
             val stmt = connection?.createStatement() ?: return
 
-            // Проверяем, установлено ли уже расширение age
             val rs = stmt.executeQuery(
                 "SELECT 1 FROM pg_extension WHERE extname = 'age'"
             )
@@ -132,10 +133,92 @@ class PostgresDataSource(
         )
     }
 
-    // ==================== Search table ====================
+    // ==================== SQL tables ====================
 
-    private fun createSearchTable() {
+    private fun createTables() {
         val stmt = connection?.createStatement() ?: return
+
+        stmt.executeUpdate("CREATE EXTENSION IF NOT EXISTS pg_trgm")
+
+        stmt.executeUpdate("""
+            CREATE TABLE IF NOT EXISTS creators (
+                id TEXT PRIMARY KEY,
+                created BIGINT NOT NULL DEFAULT 0,
+                aliases JSONB NOT NULL DEFAULT '[]',
+                file_name TEXT NOT NULL DEFAULT '',
+                listen_in_sec INT NOT NULL DEFAULT 0
+            )
+        """)
+
+        stmt.executeUpdate("""
+            CREATE TABLE IF NOT EXISTS tracks (
+                id TEXT PRIMARY KEY,
+                created BIGINT NOT NULL DEFAULT 0,
+                aliases JSONB NOT NULL DEFAULT '[]',
+                cover TEXT NOT NULL DEFAULT '',
+                year BIGINT NOT NULL DEFAULT 0,
+                album TEXT NOT NULL DEFAULT '',
+                number_in_album BIGINT NOT NULL DEFAULT 0,
+                related JSONB NOT NULL DEFAULT '[]',
+                source_file TEXT NOT NULL DEFAULT '',
+                file_name TEXT NOT NULL DEFAULT '',
+                listen_in_sec INT NOT NULL DEFAULT 0,
+                cover_of TEXT NOT NULL DEFAULT ''
+            )
+        """)
+
+        stmt.executeUpdate("""
+            CREATE TABLE IF NOT EXISTS albums (
+                id TEXT PRIMARY KEY,
+                created BIGINT NOT NULL DEFAULT 0,
+                aliases JSONB NOT NULL DEFAULT '[]',
+                cover TEXT NOT NULL DEFAULT '',
+                year BIGINT NOT NULL DEFAULT 0,
+                file_name TEXT NOT NULL DEFAULT ''
+            )
+        """)
+
+        stmt.executeUpdate("""
+            CREATE TABLE IF NOT EXISTS playlists (
+                id TEXT PRIMARY KEY,
+                created BIGINT NOT NULL DEFAULT 0,
+                aliases JSONB NOT NULL DEFAULT '[]',
+                file_name TEXT NOT NULL DEFAULT ''
+            )
+        """)
+
+        stmt.executeUpdate("""
+            CREATE TABLE IF NOT EXISTS track_creators (
+                track_id TEXT NOT NULL,
+                creator_id TEXT NOT NULL,
+                PRIMARY KEY (track_id, creator_id)
+            )
+        """)
+
+        stmt.executeUpdate("""
+            CREATE TABLE IF NOT EXISTS album_creators (
+                album_id TEXT NOT NULL,
+                creator_id TEXT NOT NULL,
+                PRIMARY KEY (album_id, creator_id)
+            )
+        """)
+
+        stmt.executeUpdate("""
+            CREATE TABLE IF NOT EXISTS album_tracks (
+                album_id TEXT NOT NULL,
+                track_id TEXT NOT NULL,
+                PRIMARY KEY (album_id, track_id)
+            )
+        """)
+
+        stmt.executeUpdate("""
+            CREATE TABLE IF NOT EXISTS playlist_tracks (
+                playlist_id TEXT NOT NULL,
+                track_id TEXT NOT NULL,
+                PRIMARY KEY (playlist_id, track_id)
+            )
+        """)
+
         stmt.executeUpdate("""
             CREATE TABLE IF NOT EXISTS search_index (
                 entity_id TEXT PRIMARY KEY,
@@ -147,10 +230,17 @@ class PostgresDataSource(
         stmt.executeUpdate("""
             CREATE INDEX IF NOT EXISTS idx_search_vector ON search_index USING GIN(search_vector)
         """)
+        stmt.executeUpdate("""
+            CREATE INDEX IF NOT EXISTS idx_search_name_trgm ON search_index USING GIN(name gin_trgm_ops)
+        """)
+
         stmt.close()
     }
 
-    private fun updateSearchIndex(entityId: String, entityType: String, name: String) {
+    // ==================== Search index ====================
+
+    private fun updateSearchIndex(entityId: String, entityType: String, names: List<String>) {
+        val searchText = names.joinToString(" ")
         val ps = connection?.prepareStatement("""
             INSERT INTO search_index (entity_id, entity_type, name, search_vector)
             VALUES (?, ?, ?, to_tsvector('simple', ?))
@@ -161,8 +251,8 @@ class PostgresDataSource(
         """) ?: return
         ps.setString(1, entityId)
         ps.setString(2, entityType)
-        ps.setString(3, name)
-        ps.setString(4, name)
+        ps.setString(3, names.firstOrNull().orEmpty())
+        ps.setString(4, searchText)
         ps.executeUpdate()
         ps.close()
     }
@@ -174,188 +264,297 @@ class PostgresDataSource(
         ps.close()
     }
 
+    fun clearAll() {
+        val stmt = connection?.createStatement() ?: return
+        stmt.executeUpdate("DELETE FROM search_index")
+        stmt.executeUpdate("DELETE FROM playlist_tracks")
+        stmt.executeUpdate("DELETE FROM album_tracks")
+        stmt.executeUpdate("DELETE FROM album_creators")
+        stmt.executeUpdate("DELETE FROM track_creators")
+        stmt.executeUpdate("DELETE FROM playlists")
+        stmt.executeUpdate("DELETE FROM albums")
+        stmt.executeUpdate("DELETE FROM tracks")
+        stmt.executeUpdate("DELETE FROM creators")
+        stmt.close()
+    }
+
     // ==================== Creators ====================
 
     fun putCreators(creators: List<CreatorDocument>) {
+        val ps = connection?.prepareStatement("""
+            INSERT INTO creators (id, created, aliases, file_name, listen_in_sec)
+            VALUES (?, ?, ?::jsonb, ?, ?)
+            ON CONFLICT (id) DO UPDATE SET
+                created = EXCLUDED.created,
+                aliases = EXCLUDED.aliases,
+                file_name = EXCLUDED.file_name,
+                listen_in_sec = EXCLUDED.listen_in_sec
+        """) ?: return
         creators.forEach { creator ->
-            val jsonStr = json.encodeToString(CreatorDocument.serializer(), creator)
-
             try {
-                ageExec("MERGE (c:Creator {id: '${escapeForCypher(creator.id)}'}) SET c = ${jsonToAgeProps(jsonStr)}")
-                updateSearchIndex(creator.id, "creator", creator.aliases.getOrElse(0) { creator.fileName })
+                ps.setString(1, creator.id)
+                ps.setLong(2, creator.created)
+                ps.setString(3, listToJson(creator.aliases))
+                ps.setString(4, creator.fileName)
+                ps.setInt(5, creator.listenInSec)
+                ps.executeUpdate()
+                updateSearchIndex(creator.id, "creator", creator.aliases.ifEmpty { listOf(creator.fileName) })
             } catch (e: Exception) {
                 Log.e(TAG, "Error putting creator ${creator.id}: ${e.message}")
             }
         }
+        ps.close()
     }
 
     fun getAllCreators(): List<CreatorDocument> {
-        val rs = ageExecWithReturn("MATCH (c:Creator) RETURN c") ?: return emptyList()
+        val rs = connection?.createStatement()?.executeQuery("SELECT * FROM creators") ?: return emptyList()
         val list = mutableListOf<CreatorDocument>()
         while (rs.next()) {
-            val jsonStr = rs.getString("result")
-            jsonStr?.let {
-                try {
-                    list.add(json.decodeFromString(CreatorDocument.serializer(), it))
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error parsing creator JSON: ${e.message}")
-                }
-            }
+            list.add(
+                CreatorDocument(
+                    id = rs.getString("id"),
+                    created = rs.getLong("created"),
+                    aliases = jsonToList(rs.getString("aliases")),
+                    fileName = rs.getString("file_name"),
+                    listenInSec = rs.getInt("listen_in_sec")
+                )
+            )
         }
         rs.close()
         return list
     }
 
     fun updateCreatorListenInSec(creatorId: String) {
-        try {
-            ageExec("""
-                MATCH (c:Creator {id: '$creatorId'})<-[:HAS_CREATOR]-(t:Track)
-                WITH c, COALESCE(SUM(t.listenInSec), 0) AS totalListen
-                SET c.listenInSec = totalListen
-            """.trimIndent())
-        } catch (e: Exception) {
-            Log.e(TAG, "Error updating creator listen: ${e.message}")
-        }
+        val ps = connection?.prepareStatement("""
+            UPDATE creators SET listen_in_sec = (
+                SELECT COALESCE(SUM(t.listen_in_sec), 0)
+                FROM tracks t
+                JOIN track_creators tc ON tc.track_id = t.id
+                WHERE tc.creator_id = ?
+            ) WHERE id = ?
+        """) ?: return
+        ps.setString(1, creatorId)
+        ps.setString(2, creatorId)
+        ps.executeUpdate()
+        ps.close()
     }
 
     fun removeCreators(creators: List<CreatorDocument>) {
+        val ps = connection?.prepareStatement("DELETE FROM creators WHERE id = ?") ?: return
         creators.forEach { creator ->
             try {
-                ageExec("MATCH (c:Creator {id: '${escapeForCypher(creator.id)}'}) DETACH DELETE c")
+                ps.setString(1, creator.id)
+                ps.executeUpdate()
                 removeSearchIndex(creator.id)
             } catch (e: Exception) {
                 Log.e(TAG, "Error removing creator ${creator.id}: ${e.message}")
             }
         }
+        ps.close()
     }
 
     // ==================== Tracks ====================
 
     fun putTracks(tracks: List<TrackDocument>) {
+        val ps = connection?.prepareStatement("""
+            INSERT INTO tracks (id, created, aliases, cover, year, album, number_in_album, related, source_file, file_name, listen_in_sec, cover_of)
+            VALUES (?, ?, ?::jsonb, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?)
+            ON CONFLICT (id) DO UPDATE SET
+                created = EXCLUDED.created,
+                aliases = EXCLUDED.aliases,
+                cover = EXCLUDED.cover,
+                year = EXCLUDED.year,
+                album = EXCLUDED.album,
+                number_in_album = EXCLUDED.number_in_album,
+                related = EXCLUDED.related,
+                source_file = EXCLUDED.source_file,
+                file_name = EXCLUDED.file_name,
+                listen_in_sec = EXCLUDED.listen_in_sec,
+                cover_of = EXCLUDED.cover_of
+        """) ?: return
         tracks.forEach { track ->
-            val jsonStr = json.encodeToString(TrackDocument.serializer(), track)
-
             try {
-                ageExec("MERGE (t:Track {id: '${escapeForCypher(track.id)}'}) SET t = ${jsonToAgeProps(jsonStr)}")
-                updateSearchIndex(track.id, "track", track.aliases.getOrElse(0) { track.fileName })
+                ps.setString(1, track.id)
+                ps.setLong(2, track.created)
+                ps.setString(3, listToJson(track.aliases))
+                ps.setString(4, track.cover)
+                ps.setLong(5, track.year)
+                ps.setString(6, track.album)
+                ps.setLong(7, track.numberInAlbum)
+                ps.setString(8, listToJson(track.related))
+                ps.setString(9, track.sourceFile)
+                ps.setString(10, track.fileName)
+                ps.setInt(11, track.listenInSec)
+                ps.setString(12, track.coverOf)
+                ps.executeUpdate()
+                updateSearchIndex(track.id, "track", track.aliases.ifEmpty { listOf(track.fileName) })
             } catch (e: Exception) {
                 Log.e(TAG, "Error putting track ${track.id}: ${e.message}")
             }
         }
+        ps.close()
     }
 
     fun getAllTracks(): List<TrackDocument> {
-        val rs = ageExecWithReturn("MATCH (t:Track) RETURN t") ?: return emptyList()
+        val rs = connection?.createStatement()?.executeQuery("SELECT * FROM tracks") ?: return emptyList()
         val tracks = mutableListOf<TrackDocument>()
         while (rs.next()) {
-            val jsonStr = rs.getString("result")
-            jsonStr?.let {
-                try {
-                    tracks.add(json.decodeFromString(TrackDocument.serializer(), it))
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error parsing track JSON: ${e.message}")
-                }
-            }
+            tracks.add(
+                TrackDocument(
+                    id = rs.getString("id"),
+                    created = rs.getLong("created"),
+                    aliases = jsonToList(rs.getString("aliases")),
+                    cover = rs.getString("cover"),
+                    year = rs.getLong("year"),
+                    album = rs.getString("album"),
+                    numberInAlbum = rs.getLong("number_in_album"),
+                    related = jsonToList(rs.getString("related")),
+                    sourceFile = rs.getString("source_file"),
+                    fileName = rs.getString("file_name"),
+                    listenInSec = rs.getInt("listen_in_sec"),
+                    coverOf = rs.getString("cover_of")
+                )
+            )
         }
         rs.close()
         return tracks
     }
 
     fun updateTrackListenInSec(track: TrackDocument) {
-        try {
-            ageExec("MATCH (t:Track {id: '${escapeForCypher(track.id)}'}) SET t.listenInSec = ${track.listenInSec}")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error updating track listen: ${e.message}")
-        }
+        val ps = connection?.prepareStatement("UPDATE tracks SET listen_in_sec = ? WHERE id = ?") ?: return
+        ps.setInt(1, track.listenInSec)
+        ps.setString(2, track.id)
+        ps.executeUpdate()
+        ps.close()
     }
 
     fun removeTracks(tracks: List<TrackDocument>) {
+        val ps = connection?.prepareStatement("DELETE FROM tracks WHERE id = ?") ?: return
         tracks.forEach { track ->
             try {
-                ageExec("MATCH (t:Track {id: '${escapeForCypher(track.id)}'}) DETACH DELETE t")
+                ps.setString(1, track.id)
+                ps.executeUpdate()
                 removeSearchIndex(track.id)
             } catch (e: Exception) {
                 Log.e(TAG, "Error removing track ${track.id}: ${e.message}")
             }
         }
+        ps.close()
     }
 
     // ==================== Track-Creator edges ====================
 
     fun putTrackCreators(trackId: String, creatorIds: List<String>) {
         try {
-            ageExec("MATCH (t:Track {id: '$trackId'}) OPTIONAL MATCH (t)-[r:HAS_CREATOR]->() DELETE r")
+            val del = connection?.prepareStatement("DELETE FROM track_creators WHERE track_id = ?")
+            del?.setString(1, trackId)
+            del?.executeUpdate()
+            del?.close()
+
+            val ins = connection?.prepareStatement("INSERT INTO track_creators (track_id, creator_id) VALUES (?, ?)")
             creatorIds.forEach { creatorId ->
-                ageExec("MATCH (t:Track {id: '$trackId'}), (c:Creator {id: '$creatorId'}) CREATE (t)-[:HAS_CREATOR]->(c)")
+                ins?.setString(1, trackId)
+                ins?.setString(2, creatorId)
+                ins?.executeUpdate()
             }
+            ins?.close()
         } catch (e: Exception) {
             Log.e(TAG, "Error putting track-creator edges: ${e.message}")
         }
     }
 
     fun getTrackCreators(trackId: String): List<String> {
-        val rs = ageExecWithReturn(
-            "MATCH (t:Track {id: '$trackId'})-[:HAS_CREATOR]->(c:Creator) RETURN c.id"
-        ) ?: return emptyList()
+        val ps = connection?.prepareStatement("SELECT creator_id FROM track_creators WHERE track_id = ?") ?: return emptyList()
+        ps.setString(1, trackId)
+        val rs = ps.executeQuery()
         val ids = mutableListOf<String>()
         while (rs.next()) {
-            rs.getString("result")?.let { ids.add(it) }
+            ids.add(rs.getString("creator_id"))
         }
         rs.close()
+        ps.close()
         return ids
     }
 
     // ==================== Albums ====================
 
     fun putAlbums(albums: List<AlbumDocument>) {
+        val ps = connection?.prepareStatement("""
+            INSERT INTO albums (id, created, aliases, cover, year, file_name)
+            VALUES (?, ?, ?::jsonb, ?, ?, ?)
+            ON CONFLICT (id) DO UPDATE SET
+                created = EXCLUDED.created,
+                aliases = EXCLUDED.aliases,
+                cover = EXCLUDED.cover,
+                year = EXCLUDED.year,
+                file_name = EXCLUDED.file_name
+        """) ?: return
         albums.forEach { album ->
-            val jsonStr = json.encodeToString(AlbumDocument.serializer(), album)
-
             try {
-                ageExec("MERGE (a:Album {id: '${escapeForCypher(album.id)}'}) SET a = ${jsonToAgeProps(jsonStr)}")
-                updateSearchIndex(album.id, "album", album.aliases.getOrElse(0) { album.fileName })
+                ps.setString(1, album.id)
+                ps.setLong(2, album.created)
+                ps.setString(3, listToJson(album.aliases))
+                ps.setString(4, album.cover)
+                ps.setLong(5, album.year)
+                ps.setString(6, album.fileName)
+                ps.executeUpdate()
+                updateSearchIndex(album.id, "album", album.aliases.ifEmpty { listOf(album.fileName) })
             } catch (e: Exception) {
                 Log.e(TAG, "Error putting album ${album.id}: ${e.message}")
             }
         }
+        ps.close()
     }
 
     fun getAllAlbums(): List<AlbumDocument> {
-        val rs = ageExecWithReturn("MATCH (a:Album) RETURN a") ?: return emptyList()
+        val rs = connection?.createStatement()?.executeQuery("SELECT * FROM albums") ?: return emptyList()
         val albums = mutableListOf<AlbumDocument>()
         while (rs.next()) {
-            val jsonStr = rs.getString("result")
-            jsonStr?.let {
-                try {
-                    albums.add(json.decodeFromString(AlbumDocument.serializer(), it))
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error parsing album JSON: ${e.message}")
-                }
-            }
+            albums.add(
+                AlbumDocument(
+                    id = rs.getString("id"),
+                    created = rs.getLong("created"),
+                    aliases = jsonToList(rs.getString("aliases")),
+                    cover = rs.getString("cover"),
+                    year = rs.getLong("year"),
+                    fileName = rs.getString("file_name")
+                )
+            )
         }
         rs.close()
         return albums
     }
 
     fun removeAlbums(albums: List<AlbumDocument>) {
+        val ps = connection?.prepareStatement("DELETE FROM albums WHERE id = ?") ?: return
         albums.forEach { album ->
             try {
-                ageExec("MATCH (a:Album {id: '${escapeForCypher(album.id)}'}) DETACH DELETE a")
+                ps.setString(1, album.id)
+                ps.executeUpdate()
                 removeSearchIndex(album.id)
             } catch (e: Exception) {
                 Log.e(TAG, "Error removing album ${album.id}: ${e.message}")
             }
         }
+        ps.close()
     }
 
     // ==================== Album edges ====================
 
     fun putAlbumCreators(albumId: String, creatorIds: List<String>) {
         try {
-            ageExec("MATCH (a:Album {id: '$albumId'}) OPTIONAL MATCH (a)-[r:HAS_CREATOR]->() DELETE r")
+            val del = connection?.prepareStatement("DELETE FROM album_creators WHERE album_id = ?")
+            del?.setString(1, albumId)
+            del?.executeUpdate()
+            del?.close()
+
+            val ins = connection?.prepareStatement("INSERT INTO album_creators (album_id, creator_id) VALUES (?, ?)")
             creatorIds.forEach { creatorId ->
-                ageExec("MATCH (a:Album {id: '$albumId'}), (c:Creator {id: '$creatorId'}) CREATE (a)-[:HAS_CREATOR]->(c)")
+                ins?.setString(1, albumId)
+                ins?.setString(2, creatorId)
+                ins?.executeUpdate()
             }
+            ins?.close()
         } catch (e: Exception) {
             Log.e(TAG, "Error putting album-creator edges: ${e.message}")
         }
@@ -363,66 +562,87 @@ class PostgresDataSource(
 
     fun putAlbumTracks(albumId: String, trackIds: List<String>) {
         try {
-            ageExec("MATCH (a:Album {id: '$albumId'}) OPTIONAL MATCH (a)-[r:CONTAINS_TRACK]->() DELETE r")
+            val del = connection?.prepareStatement("DELETE FROM album_tracks WHERE album_id = ?")
+            del?.setString(1, albumId)
+            del?.executeUpdate()
+            del?.close()
+
+            val ins = connection?.prepareStatement("INSERT INTO album_tracks (album_id, track_id) VALUES (?, ?)")
             trackIds.forEach { trackId ->
-                ageExec("MATCH (a:Album {id: '$albumId'}), (t:Track {id: '$trackId'}) CREATE (a)-[:CONTAINS_TRACK]->(t)")
+                ins?.setString(1, albumId)
+                ins?.setString(2, trackId)
+                ins?.executeUpdate()
             }
+            ins?.close()
         } catch (e: Exception) {
             Log.e(TAG, "Error putting album-track edges: ${e.message}")
         }
     }
 
     fun getAlbumCreators(albumId: String): List<String> {
-        val rs = ageExecWithReturn(
-            "MATCH (a:Album {id: '$albumId'})-[:HAS_CREATOR]->(c:Creator) RETURN c.id"
-        ) ?: return emptyList()
+        val ps = connection?.prepareStatement("SELECT creator_id FROM album_creators WHERE album_id = ?") ?: return emptyList()
+        ps.setString(1, albumId)
+        val rs = ps.executeQuery()
         val ids = mutableListOf<String>()
         while (rs.next()) {
-            rs.getString("result")?.let { ids.add(it) }
+            ids.add(rs.getString("creator_id"))
         }
         rs.close()
+        ps.close()
         return ids
     }
 
     fun getAlbumTracks(albumId: String): List<String> {
-        val rs = ageExecWithReturn(
-            "MATCH (a:Album {id: '$albumId'})-[:CONTAINS_TRACK]->(t:Track) RETURN t.id"
-        ) ?: return emptyList()
+        val ps = connection?.prepareStatement("SELECT track_id FROM album_tracks WHERE album_id = ?") ?: return emptyList()
+        ps.setString(1, albumId)
+        val rs = ps.executeQuery()
         val ids = mutableListOf<String>()
         while (rs.next()) {
-            rs.getString("result")?.let { ids.add(it) }
+            ids.add(rs.getString("track_id"))
         }
         rs.close()
+        ps.close()
         return ids
     }
 
     // ==================== Playlists ====================
 
     fun putPlaylists(playlists: List<PlaylistDocument>) {
+        val ps = connection?.prepareStatement("""
+            INSERT INTO playlists (id, created, aliases, file_name)
+            VALUES (?, ?, ?::jsonb, ?)
+            ON CONFLICT (id) DO UPDATE SET
+                created = EXCLUDED.created,
+                aliases = EXCLUDED.aliases,
+                file_name = EXCLUDED.file_name
+        """) ?: return
         playlists.forEach { playlist ->
-            val jsonStr = json.encodeToString(PlaylistDocument.serializer(), playlist)
-
             try {
-                ageExec("MERGE (p:Playlist {id: '${escapeForCypher(playlist.id)}'}) SET p = ${jsonToAgeProps(jsonStr)}")
-                updateSearchIndex(playlist.id, "playlist", playlist.aliases.getOrElse(0) { playlist.fileName })
+                ps.setString(1, playlist.id)
+                ps.setLong(2, playlist.created)
+                ps.setString(3, listToJson(playlist.aliases))
+                ps.setString(4, playlist.fileName)
+                ps.executeUpdate()
+                updateSearchIndex(playlist.id, "playlist", playlist.aliases.ifEmpty { listOf(playlist.fileName) })
             } catch (e: Exception) {
                 Log.e(TAG, "Error putting playlist ${playlist.id}: ${e.message}")
             }
         }
+        ps.close()
     }
 
     fun getAllPlaylists(): List<PlaylistDocument> {
-        val rs = ageExecWithReturn("MATCH (p:Playlist) RETURN p") ?: return emptyList()
+        val rs = connection?.createStatement()?.executeQuery("SELECT * FROM playlists") ?: return emptyList()
         val playlists = mutableListOf<PlaylistDocument>()
         while (rs.next()) {
-            val jsonStr = rs.getString("result")
-            jsonStr?.let {
-                try {
-                    playlists.add(json.decodeFromString(PlaylistDocument.serializer(), it))
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error parsing playlist JSON: ${e.message}")
-                }
-            }
+            playlists.add(
+                PlaylistDocument(
+                    id = rs.getString("id"),
+                    created = rs.getLong("created"),
+                    aliases = jsonToList(rs.getString("aliases")),
+                    fileName = rs.getString("file_name")
+                )
+            )
         }
         rs.close()
         return playlists
@@ -430,36 +650,48 @@ class PostgresDataSource(
 
     fun putPlaylistTracks(playlistId: String, trackIds: List<String>) {
         try {
-            ageExec("MATCH (p:Playlist {id: '$playlistId'}) OPTIONAL MATCH (p)-[r:CONTAINS_TRACK]->() DELETE r")
+            val del = connection?.prepareStatement("DELETE FROM playlist_tracks WHERE playlist_id = ?")
+            del?.setString(1, playlistId)
+            del?.executeUpdate()
+            del?.close()
+
+            val ins = connection?.prepareStatement("INSERT INTO playlist_tracks (playlist_id, track_id) VALUES (?, ?)")
             trackIds.forEach { trackId ->
-                ageExec("MATCH (p:Playlist {id: '$playlistId'}), (t:Track {id: '$trackId'}) CREATE (p)-[:CONTAINS_TRACK]->(t)")
+                ins?.setString(1, playlistId)
+                ins?.setString(2, trackId)
+                ins?.executeUpdate()
             }
+            ins?.close()
         } catch (e: Exception) {
             Log.e(TAG, "Error putting playlist-track edges: ${e.message}")
         }
     }
 
     fun getPlaylistTracks(playlistId: String): List<String> {
-        val rs = ageExecWithReturn(
-            "MATCH (p:Playlist {id: '$playlistId'})-[:CONTAINS_TRACK]->(t:Track) RETURN t.id"
-        ) ?: return emptyList()
+        val ps = connection?.prepareStatement("SELECT track_id FROM playlist_tracks WHERE playlist_id = ?") ?: return emptyList()
+        ps.setString(1, playlistId)
+        val rs = ps.executeQuery()
         val ids = mutableListOf<String>()
         while (rs.next()) {
-            rs.getString("result")?.let { ids.add(it) }
+            ids.add(rs.getString("track_id"))
         }
         rs.close()
+        ps.close()
         return ids
     }
 
     fun removePlaylists(playlists: List<PlaylistDocument>) {
+        val ps = connection?.prepareStatement("DELETE FROM playlists WHERE id = ?") ?: return
         playlists.forEach { playlist ->
             try {
-                ageExec("MATCH (p:Playlist {id: '${escapeForCypher(playlist.id)}'}) DETACH DELETE p")
+                ps.setString(1, playlist.id)
+                ps.executeUpdate()
                 removeSearchIndex(playlist.id)
             } catch (e: Exception) {
                 Log.e(TAG, "Error removing playlist ${playlist.id}: ${e.message}")
             }
         }
+        ps.close()
     }
 
     // ==================== Full-text search ====================
@@ -467,14 +699,14 @@ class PostgresDataSource(
     fun search(query: String, limit: Int = 20): List<SearchResult> {
         val ps = connection?.prepareStatement("""
             SELECT entity_id, entity_type, name,
-                   ts_rank_cd(search_vector, plainto_tsquery('simple', ?)) AS rank
+                   similarity(name, ?) AS rank
             FROM search_index
-            WHERE search_vector @@ plainto_tsquery('simple', ?)
+            WHERE name ILIKE ?
             ORDER BY rank DESC
             LIMIT ?
         """) ?: return emptyList()
         ps.setString(1, query)
-        ps.setString(2, query)
+        ps.setString(2, "%$query%")
         ps.setInt(3, limit)
         val rs = ps.executeQuery()
         val results = mutableListOf<SearchResult>()
@@ -493,17 +725,65 @@ class PostgresDataSource(
         return results
     }
 
-    // ==================== JSON parsing helpers ====================
+    fun rebuildSearchIndex() {
+        val stmt = connection?.createStatement() ?: return
+        stmt.executeUpdate("DELETE FROM search_index")
+        stmt.close()
+
+        getAllCreators().forEach { c ->
+            updateSearchIndex(c.id, "creator", c.aliases.ifEmpty { listOf(c.fileName) })
+        }
+        getAllTracks().forEach { t ->
+            updateSearchIndex(t.id, "track", t.aliases.ifEmpty { listOf(t.fileName) })
+        }
+        getAllAlbums().forEach { a ->
+            updateSearchIndex(a.id, "album", a.aliases.ifEmpty { listOf(a.fileName) })
+        }
+        getAllPlaylists().forEach { p ->
+            updateSearchIndex(p.id, "playlist", p.aliases.ifEmpty { listOf(p.fileName) })
+        }
+    }
+
+    // ==================== JSONB helpers ====================
+
+    private fun listToJson(list: List<String>): String =
+        json.encodeToString(ListSerializer(String.serializer()), list)
+
+    private fun jsonToList(str: String?): List<String> =
+        if (str.isNullOrBlank() || str == "null") emptyList()
+        else json.decodeFromString(ListSerializer(String.serializer()), str)
+
+    // ==================== AGE helpers (kept for graph queries) ====================
 
     private fun escapeForCypher(s: String): String {
         return s.replace("\\", "\\\\").replace("\"", "\\\"")
     }
 
-    /**
-     * Конвертирует JSON строку в формат свойств AGE.
-     * Убирает кавычки с ключей, чтобы запрос работал корректно.
-     * Example: {"key":"value"} -> {key:"value"}
-     */
+    private fun extractAgeProperties(jsonStr: String): String {
+        val trimmed = jsonStr.trim()
+        val start = trimmed.indexOf("\"properties\"")
+        if (start == -1) return trimmed
+
+        val colonIdx = trimmed.indexOf(':', start)
+        if (colonIdx == -1) return trimmed
+
+        var i = colonIdx + 1
+        while (i < trimmed.length && trimmed[i].isWhitespace()) i++
+        if (i >= trimmed.length) return trimmed
+
+        if (trimmed[i] != '{') return trimmed
+        var depth = 1
+        var j = i + 1
+        while (j < trimmed.length && depth > 0) {
+            when (trimmed[j]) {
+                '{' -> depth++
+                '}' -> depth--
+            }
+            j++
+        }
+        return trimmed.substring(i, j)
+    }
+
     private fun jsonToAgeProps(jsonStr: String): String {
         return jsonStr.replace(Regex("\"([a-zA-Z_][a-zA-Z0-9_]*)\":")) { match ->
             "${match.groupValues[1]}:"

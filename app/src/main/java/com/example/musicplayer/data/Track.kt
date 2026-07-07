@@ -7,6 +7,9 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
 
+fun deterministicId(type: String, fileName: String): String =
+    UUID.nameUUIDFromBytes("$type:$fileName".toByteArray()).toString()
+
 @Serializable
 @Stable
 data class TrackDocument(
@@ -20,7 +23,7 @@ data class TrackDocument(
     val related: List<String> = emptyList(),
     val sourceFile: String = "",
     val fileName: String = "",
-    val id: String = UUID.randomUUID().toString(),
+    val id: String = deterministicId("track", fileName),
     var listenInSec: Int = 0,
     var sourceUri: String = "",
     val coverOf: String = "",

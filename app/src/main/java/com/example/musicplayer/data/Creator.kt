@@ -13,7 +13,7 @@ data class CreatorDocument(
     val created: Long = 0L,
     val aliases: List<String> = emptyList(),
     val fileName: String = "",
-    val id: String = UUID.randomUUID().toString(),
+    val id: String = deterministicId("creator", fileName),
     var listenInSec: Int = 0,
 ) {
     override fun equals(other: Any?): Boolean {

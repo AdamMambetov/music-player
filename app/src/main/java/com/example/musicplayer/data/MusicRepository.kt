@@ -19,7 +19,11 @@ class MusicRepository(
     }
 
     suspend fun connectPostgres(): Boolean = withContext(Dispatchers.IO) {
-        postgres.connect()
+        val connected = postgres.connect()
+        if (connected) {
+            postgres.rebuildSearchIndex()
+        }
+        connected
     }
 
     // ==================== Load ====================
@@ -163,43 +167,47 @@ class MusicRepository(
 
     suspend fun searchTracks(query: String): List<TrackDocument> = withContext(Dispatchers.IO) {
         val results = postgres.search(query)
-        val trackIds = results.filter { it.entityType == "track" }.map { it.entityId }
+        val trackIds = results.filter { it.entityType == "track" }.map { it.entityId }.distinct()
         if (trackIds.isEmpty()) return@withContext emptyList()
 
-        val allTracks = postgres.getAllTracks()
-        trackIds.mapNotNull { id -> allTracks.find { it.id == id } }
+        val tracksById = postgres.getAllTracks().associateBy { it.id }
+        trackIds.mapNotNull { tracksById[it] }
     }
 
     suspend fun searchCreators(query: String): List<CreatorDocument> = withContext(Dispatchers.IO) {
         val results = postgres.search(query)
-        val creatorIds = results.filter { it.entityType == "creator" }.map { it.entityId }
+        val creatorIds = results.filter { it.entityType == "creator" }.map { it.entityId }.distinct()
         if (creatorIds.isEmpty()) return@withContext emptyList()
 
-        val allCreators = postgres.getAllCreators()
-        creatorIds.mapNotNull { id -> allCreators.find { it.id == id } }
+        val creatorsById = postgres.getAllCreators().associateBy { it.id }
+        creatorIds.mapNotNull { creatorsById[it] }
     }
 
     suspend fun searchAlbums(query: String): List<AlbumDocument> = withContext(Dispatchers.IO) {
         val results = postgres.search(query)
-        val albumIds = results.filter { it.entityType == "album" }.map { it.entityId }
+        val albumIds = results.filter { it.entityType == "album" }.map { it.entityId }.distinct()
         if (albumIds.isEmpty()) return@withContext emptyList()
 
-        val allAlbums = postgres.getAllAlbums()
-        albumIds.mapNotNull { id -> allAlbums.find { it.id == id } }
+        val albumsById = postgres.getAllAlbums().associateBy { it.id }
+        albumIds.mapNotNull { albumsById[it] }
     }
 
     suspend fun searchPlaylists(query: String): List<PlaylistDocument> = withContext(Dispatchers.IO) {
         val results = postgres.search(query)
-        val playlistIds = results.filter { it.entityType == "playlist" }.map { it.entityId }
+        val playlistIds = results.filter { it.entityType == "playlist" }.map { it.entityId }.distinct()
         if (playlistIds.isEmpty()) return@withContext emptyList()
 
-        val allPlaylists = postgres.getAllPlaylists()
-        playlistIds.mapNotNull { id -> allPlaylists.find { it.id == id } }
+        val playlistsById = postgres.getAllPlaylists().associateBy { it.id }
+        playlistIds.mapNotNull { playlistsById[it] }
     }
 
     // ==================== Scan ====================
 
     suspend fun scanAll(clearCache: Boolean): ScanResult = withContext(Dispatchers.IO) {
+        if (clearCache) {
+            postgres.clearAll()
+        }
+
         val creators = markdownReader.scanCreators()
         postgres.putCreators(creators)
 

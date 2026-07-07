@@ -17,7 +17,7 @@ data class AlbumDocument(
     val creators: List<CreatorDocument> = emptyList(),
     val tracklist: List<TrackDocument> = emptyList(),
     val fileName: String = "",
-    val id: String = UUID.randomUUID().toString(),
+    val id: String = deterministicId("album", fileName),
 ) {
     override fun equals(other: Any?): Boolean {
         if (other !is AlbumDocument)

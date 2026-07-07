@@ -9,6 +9,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.math.min
 
 abstract class MarkdownReaderBase {
 
@@ -22,6 +23,12 @@ abstract class MarkdownReaderBase {
         pattern = "^---\n",
         option = RegexOption.MULTILINE
     )
+    protected var frontMatterListRegex = Regex(
+        pattern = "^\\s+-\\s+(?:\"([^\"]*)\"|'([^']*)'|(?!\\[\\[)([^\\r\\n]+?))\\s*$",
+        option = RegexOption.MULTILINE
+    )
+
+    protected val yamlListIndent = "  - "
 
 
     protected open fun readFile(file: File): String {
@@ -44,6 +51,9 @@ abstract class MarkdownReaderBase {
 
     protected open fun saveMarkdown(file: File, yamlMap: Map<String, String>) {
         var text = readFile(file)
+        if (!text.startsWith("---\n"))
+            text = "---\n---\n\n$text"
+
         var endIndex = frontMatterDashesRegex
             .findAll(text)
             .iterator()
@@ -56,8 +66,13 @@ abstract class MarkdownReaderBase {
             hasAllKeys = true
             for ((key, value) in yamlMap) {
                 if (!text.contains("$key:") || text.indexOf("$key:") > endIndex) {
+                    val block = if (value.contains("\n")) {
+                        "$key:\n${value.lines().joinToString("\n") { "  $it" }}\n"
+                    } else {
+                        "$key: $value\n"
+                    }
                     text = text.substring(0, endIndex) +
-                            "$key: $value\n" +
+                            block +
                             text.substring(endIndex)
                     hasAllKeys = false
                     break
@@ -75,19 +90,27 @@ abstract class MarkdownReaderBase {
             if (match.range.start > endIndex)
                 break
 
-            // 0-line 1-key 2-value
             val line = match.groups[0]!!.value
             val key = match.groups[1]!!.value
             if (!yamlMap.contains(key))
                 continue
 
-            text = text.replace(line, "$key: ${yamlMap[key]}")
+            val value = yamlMap[key]!!
+            if (value.contains("\n")) {
+                val block = "$key:\n${value.lines().joinToString("\n") { "  $it" }}"
+                text = text.replaceFirst(line, block)
+            } else {
+                text = text.replaceFirst(line, "$key: $value")
+            }
         }
         file.writeText(text = text)
     }
 
     protected open fun parseYamlFrontMatter(markdownContent: String): Map<String, String> {
         val yamlMap = mutableMapOf<String, String>()
+        if (!markdownContent.startsWith("---\n"))
+            return yamlMap
+
         val endIndex = frontMatterDashesRegex
             .findAll(markdownContent)
             .iterator()
@@ -96,12 +119,24 @@ abstract class MarkdownReaderBase {
 
         val matches = frontMatterRegex.findAll(markdownContent)
         for (match in matches) {
-            if (match.range.start !in 0..endIndex)
+            if (match.range.first !in 0..endIndex)
                 break
 
             // 0-line 1-key 2-value
             val key = match.groups[1]!!.value
-            val value = match.groups[2]!!.value
+            var value = match.groups[2]!!.value
+            if (value.isEmpty()) {
+                val listStartIndex = match.groups[2]!!.range.last + 1
+                val listEndIndex = (frontMatterRegex.find(
+                    input = markdownContent,
+                    startIndex = listStartIndex,
+                )?.range?.start) ?: endIndex
+
+                value = markdownContent.substring(
+                    startIndex = listStartIndex,
+                    endIndex = min(listEndIndex, endIndex),
+                ).trim('\n')
+            }
             yamlMap[key] = value
         }
         return yamlMap
@@ -148,18 +183,39 @@ abstract class MarkdownReaderBase {
             .build()
     }
 
+    // String array is type YAML list:
+    //  - "value1"
+    //  - "value2"
     open fun stringArrayToList(str: String): List<String> {
         val result = mutableListOf<String>()
-        val values = str.removeSurrounding(prefix = "[", suffix = "]").split("\"")
-        for (i in 1..<values.size step 2)
-            result.add(values[i])
+        val matches = frontMatterListRegex.findAll(str)
+        for (match in matches) {
+            val el = match.groups[1]?.value
+                ?: match.groups[2]?.value
+                ?: match.groups[3]?.value
+                ?: ""
+            result.add(el)
+        }
         return result
     }
 
-    open fun listToStringArray(list: List<String>): String {
-        val result = list.joinToString(", ") {
-            "\"${it.removeSurrounding("\"")}\""
+    /**
+     * Return YAML list. If list is empty return "[]".
+     *
+     * Example:
+     *   - "value1"
+     *   - 'value2 "123"'
+     *   - "[[wiki link]]"
+     */
+    open fun toYamlList(list: List<String>): String {
+        if (list.isEmpty())
+            return "[]"
+
+        val result = list.joinToString("\n") {
+            val escape = if (it.removeSurrounding("\"").contains("\""))
+                '\'' else '"'
+            "$yamlListIndent$escape${it.removeSurrounding("\"")}$escape"
         }
-        return "[${result}]"
+        return result
     }
 }
