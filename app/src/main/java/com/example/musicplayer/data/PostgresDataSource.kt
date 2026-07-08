@@ -251,7 +251,7 @@ class PostgresDataSource(
         """) ?: return
         ps.setString(1, entityId)
         ps.setString(2, entityType)
-        ps.setString(3, names.firstOrNull().orEmpty())
+        ps.setString(3, searchText)
         ps.setString(4, searchText)
         ps.executeUpdate()
         ps.close()
