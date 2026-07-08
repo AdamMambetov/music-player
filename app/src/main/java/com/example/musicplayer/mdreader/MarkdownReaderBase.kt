@@ -66,8 +66,8 @@ abstract class MarkdownReaderBase {
             hasAllKeys = true
             for ((key, value) in yamlMap) {
                 if (!text.contains("$key:") || text.indexOf("$key:") > endIndex) {
-                    val block = if (value.contains("\n")) {
-                        "$key:\n${value.lines().joinToString("\n") { "  $it" }}\n"
+                    val block = if (value.startsWith(yamlListIndent)) {
+                        "$key:\n$value\n"
                     } else {
                         "$key: $value\n"
                     }
@@ -87,7 +87,7 @@ abstract class MarkdownReaderBase {
         }
 
         for (match in matches) {
-            if (match.range.start > endIndex)
+            if (match.range.first > endIndex)
                 break
 
             val line = match.groups[0]!!.value
@@ -96,9 +96,16 @@ abstract class MarkdownReaderBase {
                 continue
 
             val value = yamlMap[key]!!
-            if (value.contains("\n")) {
-                val block = "$key:\n${value.lines().joinToString("\n") { "  $it" }}"
-                text = text.replaceFirst(line, block)
+            if (value.startsWith(yamlListIndent)) {
+                val index = frontMatterRegex
+                    .find(input = text, startIndex = match.range.last + 2)
+                    ?.range
+                    ?.first ?: endIndex
+                text = text.replaceRange(
+                    startIndex = match.range.first,
+                    endIndex = min(index, endIndex),
+                    replacement = "$key:\n$value\n",
+                )
             } else {
                 text = text.replaceFirst(line, "$key: $value")
             }
@@ -208,14 +215,14 @@ abstract class MarkdownReaderBase {
      *   - "[[wiki link]]"
      */
     open fun toYamlList(list: List<String>): String {
-        if (list.isEmpty())
+        if (list.isEmpty()) {
             return "[]"
+        }
 
-        val result = list.joinToString("\n") {
+        return list.joinToString("\n") {
             val escape = if (it.removeSurrounding("\"").contains("\""))
                 '\'' else '"'
             "$yamlListIndent$escape${it.removeSurrounding("\"")}$escape"
         }
-        return result
     }
 }

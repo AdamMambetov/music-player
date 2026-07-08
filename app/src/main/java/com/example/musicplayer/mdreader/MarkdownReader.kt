@@ -8,6 +8,8 @@ import com.example.musicplayer.data.TrackDocument
 
 class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
     companion object {
+        private const val TAG = "MarkdownReader"
+
         // Yaml FrontMatter keys
         private const val CREATED_KEY = "created"
         private const val ALIASES_KEY = "aliases"
@@ -192,7 +194,7 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
         )
         val file = files.find { it.name == track.fileName + ".md" }
         if (file == null) {
-            Log.e("TAG", "saveTrack: Not find file '${track.fileName}'")
+            Log.e(TAG, "saveTrack: Not find file '${track.fileName}'")
             return
         }
 
@@ -220,7 +222,7 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
         )
         val file = files.find { it.name == creator.fileName + ".md" }
         if (file == null) {
-            Log.d("TAG", "saveCreator: Not find file '${creator.fileName}'")
+            Log.d(TAG, "saveCreator: Not find file '${creator.fileName}'")
             return
         }
 
@@ -238,7 +240,7 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
         )
         val file = files.find { it.name == album.fileName + ".md" }
         if (file == null) {
-            Log.e("TAG", "saveAlbum: Not find file '${album.fileName}'")
+            Log.e(TAG, "saveAlbum: Not find file '${album.fileName}'")
             return
         }
 
@@ -261,7 +263,7 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
         )
         val file = files.find { it.name == playlist.fileName + ".md" }
         if (file == null) {
-            Log.e("TAG", "savePlaylist: Not find file '${playlist.fileName}'")
+            Log.e(TAG, "savePlaylist: Not find file '${playlist.fileName}'")
             return
         }
 
