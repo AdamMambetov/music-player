@@ -163,7 +163,7 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
                 },
             tracklist = stringArrayToList(yamlData[TRACKLIST_KEY].orEmpty())
                 .mapNotNull { trackName ->
-                    allTracks.find { it.fileName == trackName }
+                    allTracks.find { it.fileName == unLink(trackName) }
                 },
             fileName = filename.removeSuffix(".md"),
         )
