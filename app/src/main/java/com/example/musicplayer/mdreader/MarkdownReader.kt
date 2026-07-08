@@ -69,6 +69,7 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
         val files = pathHelper.scanFolderInNotesDir(
             folderName = PathHelper.ALBUMS_FOLDER_NAME_IN_NOTES,
         )
+        Log.d(TAG, "scanAlbums: found ${files.size} album files in Albums folder")
 
         for (file in files) {
             result.add(
@@ -88,6 +89,7 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
         val files = pathHelper.scanFolderInNotesDir(
             folderName = PathHelper.PLAYLISTS_FOLDER_NAME_IN_NOTES,
         )
+        Log.d(TAG, "scanPlaylists: found ${files.size} playlist files in Playlists folder")
 
         for (file in files) {
             result.add(
@@ -152,6 +154,16 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
         val yamlData = parseYamlFrontMatter(markdownContent)
         val aliases = stringArrayToList(yamlData[ALIASES_KEY].orEmpty())
 
+        val rawTracklist = yamlData[TRACKLIST_KEY].orEmpty()
+        val parsedTrackNames = stringArrayToList(rawTracklist)
+        Log.d(TAG, "Album '$filename': raw tracklist='$rawTracklist', parsed=${parsedTrackNames.size} items: $parsedTrackNames")
+        Log.d(TAG, "Album '$filename': available tracks=${allTracks.size}: ${allTracks.map { it.fileName }}")
+
+        val tracklist = parsedTrackNames.mapNotNull { trackName ->
+            allTracks.find { it.fileName == unLink(trackName) }
+        }
+        Log.d(TAG, "Album '$filename': resolved ${tracklist.size}/${parsedTrackNames.size} tracks")
+
         return AlbumDocument(
             created = getDateFromString(source = yamlData[CREATED_KEY].orEmpty()).timeInMillis,
             aliases = aliases,
@@ -161,10 +173,7 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
                 .mapNotNull { creatorName ->
                     allCreators.find { it.fileName == unLink(creatorName) }
                 },
-            tracklist = stringArrayToList(yamlData[TRACKLIST_KEY].orEmpty())
-                .mapNotNull { trackName ->
-                    allTracks.find { it.fileName == unLink(trackName) }
-                },
+            tracklist = tracklist,
             fileName = filename.removeSuffix(".md"),
         )
     }
@@ -177,13 +186,19 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
         val yamlData = parseYamlFrontMatter(markdownContent)
         val aliases = stringArrayToList(yamlData[ALIASES_KEY].orEmpty())
 
+        val rawTracklist = yamlData[TRACKLIST_KEY].orEmpty()
+        val parsedTrackNames = stringArrayToList(rawTracklist)
+        Log.d(TAG, "Playlist '$filename': raw tracklist='$rawTracklist', parsed=${parsedTrackNames.size} items: $parsedTrackNames")
+
+        val tracklist = parsedTrackNames.mapNotNull { trackName ->
+            allTracks.find { it.fileName == unLink(trackName) }
+        }
+        Log.d(TAG, "Playlist '$filename': resolved ${tracklist.size}/${parsedTrackNames.size} tracks")
+
         return PlaylistDocument(
             created = getDateFromString(source = yamlData[CREATED_KEY].orEmpty()).timeInMillis,
             aliases = aliases,
-            tracklist = stringArrayToList(yamlData[TRACKLIST_KEY].orEmpty())
-                .mapNotNull { trackName ->
-                    allTracks.find { it.fileName == unLink(trackName) }
-                },
+            tracklist = tracklist,
             fileName = filename.removeSuffix(".md"),
         )
     }

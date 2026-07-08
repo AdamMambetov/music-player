@@ -86,15 +86,17 @@ class MusicRepository(
     suspend fun loadAllAlbums(creators: List<CreatorDocument>, tracks: List<TrackDocument>): List<AlbumDocument> = withContext(Dispatchers.IO) {
         val pgAlbums = postgres.getAllAlbums()
         if (pgAlbums.isNotEmpty()) {
-            Log.d(TAG, "Loaded ${pgAlbums.size} albums from PostgreSQL")
+            Log.d(TAG, "Loaded ${pgAlbums.size} albums from PostgreSQL, ${tracks.size} tracks available")
             val creatorMap = creators.associateBy { it.id }
             val trackMap = tracks.associateBy { it.id }
             return@withContext pgAlbums.map { album ->
                 val albumCreatorIds = postgres.getAlbumCreators(album.id)
                 val albumTrackIds = postgres.getAlbumTracks(album.id)
+                val resolvedTracks = albumTrackIds.mapNotNull { trackMap[it] }
+                Log.d(TAG, "Album '${album.aliases.getOrElse(0) { album.fileName }}': ${albumTrackIds.size} track IDs from PG, ${resolvedTracks.size} resolved")
                 album.copy(
                     creators = albumCreatorIds.mapNotNull { creatorMap[it] },
-                    tracklist = albumTrackIds.mapNotNull { trackMap[it] }
+                    tracklist = resolvedTracks
                 )
             }
         }
@@ -114,11 +116,13 @@ class MusicRepository(
     suspend fun loadAllPlaylists(tracks: List<TrackDocument>): List<PlaylistDocument> = withContext(Dispatchers.IO) {
         val pgPlaylists = postgres.getAllPlaylists()
         if (pgPlaylists.isNotEmpty()) {
-            Log.d(TAG, "Loaded ${pgPlaylists.size} playlists from PostgreSQL")
+            Log.d(TAG, "Loaded ${pgPlaylists.size} playlists from PostgreSQL, ${tracks.size} tracks available")
             val trackMap = tracks.associateBy { it.id }
             return@withContext pgPlaylists.map { playlist ->
                 val playlistTrackIds = postgres.getPlaylistTracks(playlist.id)
-                playlist.copy(tracklist = playlistTrackIds.mapNotNull { trackMap[it] })
+                val resolvedTracks = playlistTrackIds.mapNotNull { trackMap[it] }
+                Log.d(TAG, "Playlist '${playlist.aliases.getOrElse(0) { playlist.fileName }}': ${playlistTrackIds.size} track IDs from PG, ${resolvedTracks.size} resolved")
+                playlist.copy(tracklist = resolvedTracks)
             }
         }
 
@@ -158,8 +162,11 @@ class MusicRepository(
         postgres.updateTrackListenInSec(track)
 
         creators.forEach { creator ->
-            markdownReader.saveCreator(creator)
             postgres.updateCreatorListenInSec(creator.id)
+            val updated = postgres.getCreator(creator.id)
+            if (updated != null) {
+                markdownReader.saveCreator(updated)
+            }
         }
     }
 
@@ -173,11 +180,16 @@ class MusicRepository(
         val sourceFileUris = mediaReader.scanAudio(
             uri = pathHelper.getTracksFolderPath().toUri()
         )
+        val creators = postgres.getAllCreators()
+        val creatorMap = creators.associateBy { it.id }
         val tracksById = postgres.getAllTracks().associateBy { it.id }
         trackIds.mapNotNull { id ->
             tracksById[id]?.let { track ->
                 val sourceUri = sourceFileUris[track.sourceFile]
-                if (sourceUri != null) track.copy(sourceUri = sourceUri) else track
+                val trackCreators = postgres.getTrackCreators(track.id)
+                    .mapNotNull { creatorMap[it] }
+                val withUri = if (sourceUri != null) track.copy(sourceUri = sourceUri) else track
+                withUri.copy(creators = trackCreators)
             }
         }
     }
@@ -247,7 +259,7 @@ class MusicRepository(
         }
 
         val favorites = playlists.find {
-            it.aliases.getOrElse(0) { false } == "Favorites"
+            it.aliases.getOrElse(0) { "" } == "Favorites"
         }
 
         ScanResult(creators, tracks, albums, playlists, favorites)

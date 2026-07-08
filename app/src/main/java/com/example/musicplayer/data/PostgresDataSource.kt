@@ -324,6 +324,24 @@ class PostgresDataSource(
         return list
     }
 
+    fun getCreator(id: String): CreatorDocument? {
+        val ps = connection?.prepareStatement("SELECT * FROM creators WHERE id = ?") ?: return null
+        ps.setString(1, id)
+        val rs = ps.executeQuery()
+        val creator = if (rs.next()) {
+            CreatorDocument(
+                id = rs.getString("id"),
+                created = rs.getLong("created"),
+                aliases = jsonToList(rs.getString("aliases")),
+                fileName = rs.getString("file_name"),
+                listenInSec = rs.getInt("listen_in_sec")
+            )
+        } else null
+        rs.close()
+        ps.close()
+        return creator
+    }
+
     fun updateCreatorListenInSec(creatorId: String) {
         val ps = connection?.prepareStatement("""
             UPDATE creators SET listen_in_sec = (
