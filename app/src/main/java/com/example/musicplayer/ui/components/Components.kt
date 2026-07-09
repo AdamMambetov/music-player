@@ -35,7 +35,7 @@ import com.example.musicplayer.R
 import com.example.musicplayer.data.CreatorDocument
 import com.example.musicplayer.data.TrackDocument
 import com.example.musicplayer.ui.theme.AccentRed
-import com.example.musicplayer.ui.theme.Amber60
+import com.example.musicplayer.ui.theme.Blue60
 import com.example.musicplayer.ui.theme.DividerColor
 import com.example.musicplayer.ui.theme.OnSurfacePrimary
 import com.example.musicplayer.ui.theme.OnSurfaceSecondary
@@ -97,7 +97,7 @@ fun TrackListItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = name,
-                color = if (isActive) Amber60 else OnSurfacePrimary,
+                color = if (isActive) Blue60 else OnSurfacePrimary,
                 fontSize = 15.sp,
                 fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,

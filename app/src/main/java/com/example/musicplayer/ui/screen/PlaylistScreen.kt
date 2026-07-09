@@ -45,11 +45,15 @@ fun AllPlaylists(
     modifier: Modifier = Modifier,
     onPlaylistSelected: (PlaylistDocument) -> Unit = { _ -> },
     allPlaylists: List<PlaylistDocument>,
+    onBack: () -> Unit = {},
 ) {
     Column(
         modifier = modifier.fillMaxSize().systemBarsPadding().background(SurfaceDark)
     ) {
-        Text("Плейлисты (${allPlaylists.size})", color = OnSurfacePrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
+        Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = OnSurfacePrimary, modifier = Modifier.size(32.dp)) }
+            Text("Плейлисты (${allPlaylists.size})", color = OnSurfacePrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
 
         LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
             items(items = allPlaylists, key = { it.id }) { playlist ->
@@ -79,14 +83,14 @@ fun PlaylistTracks(
     modifier: Modifier = Modifier,
     viewModel: MusicPlayerViewModel,
     onTrackSelected: (TrackDocument) -> Unit = {},
-    onBackClicked: () -> Unit = {},
+    onBack: () -> Unit = {},
     playlist: PlaylistDocument = remember { viewModel.currentPlaylist },
 ) {
     val listState = rememberLazyListState()
 
     Column(modifier = modifier.fillMaxSize().systemBarsPadding().background(SurfaceDark)) {
         Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { onBackClicked() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = OnSurfacePrimary, modifier = Modifier.size(32.dp)) }
+            IconButton(onClick = { onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = OnSurfacePrimary, modifier = Modifier.size(32.dp)) }
             Text(playlist.aliases.getOrElse(0) { PlaylistDocument.UNKNOWN }, color = OnSurfacePrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
 

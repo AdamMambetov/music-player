@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import com.example.musicplayer.MusicPlayerViewModel
 import com.example.musicplayer.R
-import com.example.musicplayer.ui.theme.Amber60
+import com.example.musicplayer.ui.theme.Blue60
 import com.example.musicplayer.ui.theme.OnSurfacePrimary
 import com.example.musicplayer.ui.theme.OnSurfaceSecondary
 import com.example.musicplayer.ui.theme.SurfaceCard
@@ -121,7 +121,7 @@ fun SettingsScreen(
                 Button(onClick = {
                     val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply { data = "package:${context.packageName}".toUri() }
                     fullStorageAccessLauncher.launch(intent)
-                }, colors = ButtonDefaults.buttonColors(containerColor = Amber60)) {
+                }, colors = ButtonDefaults.buttonColors(containerColor = Blue60)) {
                     Text(if (fullStorageAccessGranted) "Granted" else "Request")
                 }
             }
@@ -134,11 +134,11 @@ fun SettingsScreen(
         SettingsCard(title = "Music Path", subtitle = musicPath) { trackPathLauncher.launch(null) }
 
         Spacer(modifier = Modifier.height(24.dp))
-        Button(modifier = Modifier.fillMaxWidth(), onClick = { viewModel.scanAll(true) }, colors = ButtonDefaults.buttonColors(containerColor = Amber60)) {
+        Button(modifier = Modifier.fillMaxWidth(), onClick = { viewModel.scanAll(true) }, colors = ButtonDefaults.buttonColors(containerColor = Blue60)) {
             Text(text = "Clean Index and Rescan")
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Button(modifier = Modifier.fillMaxWidth(), onClick = { viewModel.scanAll(false) }, colors = ButtonDefaults.buttonColors(containerColor = Amber60)) {
+        Button(modifier = Modifier.fillMaxWidth(), onClick = { viewModel.scanAll(false) }, colors = ButtonDefaults.buttonColors(containerColor = Blue60)) {
             Text(text = "Rescan")
         }
     }

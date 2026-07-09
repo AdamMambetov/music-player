@@ -20,22 +20,22 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import com.example.musicplayer.ui.theme.MusicPlayerTheme
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.media3.common.util.UnstableApi
+import com.example.musicplayer.ui.screen.AlbumTracks
 import com.example.musicplayer.ui.screen.AllAlbums
+import com.example.musicplayer.ui.screen.AllCreatorsScreen
+import com.example.musicplayer.ui.screen.CreatorTracksScreen
 import com.example.musicplayer.ui.screen.AllPlaylists
 import com.example.musicplayer.ui.screen.AllTracksScreen
-import com.example.musicplayer.ui.screen.AlbumTracks
-import com.example.musicplayer.ui.screen.CreatorTracksScreen
-import com.example.musicplayer.ui.screen.MusicInfoScreen
 import com.example.musicplayer.ui.screen.MusicPlayerScreen
 import com.example.musicplayer.ui.screen.PlaylistTracks
 import com.example.musicplayer.ui.screen.QueueTracksScreen
 import com.example.musicplayer.ui.screen.SearchScreen
 import com.example.musicplayer.ui.screen.SettingsScreen
+import com.example.musicplayer.ui.theme.MusicPlayerTheme
 
 class MainActivity : ComponentActivity() {
     private val fullStorageAccessLauncher = registerForActivityResult(
@@ -96,6 +96,7 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
             viewModel = viewModel,
             onMoveTo = { screen = it },
         )
+
         "tracks" -> AllTracksScreen(
             modifier = Modifier.fillMaxSize(),
             viewModel = viewModel,
@@ -105,6 +106,7 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
                 viewModel.setMediaSourceWithService(track)
             }
         )
+
         "queue" -> QueueTracksScreen(
             modifier = Modifier.fillMaxSize(),
             viewModel = viewModel,
@@ -114,6 +116,7 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
                 viewModel.setMediaSourceWithService(track)
             }
         )
+
         "albums" -> AllAlbums(
             modifier = Modifier.fillMaxSize(),
             allAlbums = viewModel.allAlbums,
@@ -122,6 +125,7 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
                 screen = "albumTracks"
             }
         )
+
         "album" -> AlbumTracks(
             modifier = Modifier.fillMaxSize(),
             viewModel = viewModel,
@@ -132,6 +136,7 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
             },
             onBackClicked = { screen = "album" }
         )
+
         "artist" -> CreatorTracksScreen(
             modifier = Modifier.fillMaxSize(),
             viewModel = viewModel,
@@ -140,11 +145,13 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
                 viewModel.setMediaSourceWithService(track)
             }
         )
+
         "settings" -> SettingsScreen(
             modifier = Modifier.fillMaxSize(),
             viewModel = viewModel,
             onBack = { screen = "home" },
         )
+
         "search" -> SearchScreen(
             modifier = Modifier.fillMaxSize(),
             viewModel = viewModel,
@@ -153,14 +160,17 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
             },
             onBack = { screen = "home" }
         )
+
         "playlists" -> AllPlaylists(
             modifier = Modifier.fillMaxSize(),
             allPlaylists = viewModel.allPlaylists,
             onPlaylistSelected = { playlist ->
                 viewModel.currentPlaylist = playlist
                 screen = "playlistTracks"
-            }
+            },
+            onBack = { screen = "home" }
         )
+
         "playlist" -> PlaylistTracks(
             modifier = Modifier.fillMaxSize(),
             viewModel = viewModel,
@@ -169,7 +179,13 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
                 viewModel.currentQueueIndex = viewModel.currentPlaylist.tracklist.indexOf(track)
                 viewModel.setMediaSourceWithService(track)
             },
-            onBackClicked = { screen = "playlists" }
+            onBack = { screen = "playlists" }
+        )
+
+        "artists" -> AllCreatorsScreen(
+            modifier = Modifier.fillMaxSize(),
+            viewModel = viewModel,
+            onBack = { screen = "home" }
         )
     }
 }

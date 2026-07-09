@@ -43,7 +43,7 @@ import com.example.musicplayer.R
 import com.example.musicplayer.data.TrackDocument
 import com.example.musicplayer.ui.components.AlbumCover
 import com.example.musicplayer.ui.components.TrackListItem
-import com.example.musicplayer.ui.theme.Amber60
+import com.example.musicplayer.ui.theme.Blue60
 import com.example.musicplayer.ui.theme.DividerColor
 import com.example.musicplayer.ui.theme.OnSurfacePrimary
 import com.example.musicplayer.ui.theme.OnSurfaceSecondary
@@ -69,7 +69,7 @@ fun SearchScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    OutlinedTextField(value = musicState.searchQuery, onValueChange = viewModel::onSearchQueryChange, placeholder = { Text("Поиск песен, альбомов, артистов...") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Amber60, unfocusedBorderColor = DividerColor, focusedTextColor = OnSurfacePrimary, unfocusedTextColor = OnSurfacePrimary, cursorColor = Amber60, focusedPlaceholderColor = OnSurfaceSecondary, unfocusedPlaceholderColor = OnSurfaceSecondary), modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = musicState.searchQuery, onValueChange = viewModel::onSearchQueryChange, placeholder = { Text("Поиск песен, альбомов, артистов...") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Blue60, unfocusedBorderColor = DividerColor, focusedTextColor = OnSurfacePrimary, unfocusedTextColor = OnSurfacePrimary, cursorColor = Blue60, focusedPlaceholderColor = OnSurfaceSecondary, unfocusedPlaceholderColor = OnSurfaceSecondary), modifier = Modifier.fillMaxWidth())
                 },
                 navigationIcon = { IconButton(onClick = { onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = OnSurfacePrimary) } },
                 actions = { IconButton(onClick = {}) { Icon(painterResource(R.drawable.search), contentDescription = "Search", tint = OnSurfacePrimary) } },

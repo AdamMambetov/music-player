@@ -71,8 +71,7 @@ import com.example.musicplayer.data.TrackDocument
 import com.example.musicplayer.ui.components.AlbumCover
 import com.example.musicplayer.ui.components.TrackListItem
 import com.example.musicplayer.ui.components.formatTime
-import com.example.musicplayer.ui.theme.AccentRed
-import com.example.musicplayer.ui.theme.Amber60
+import com.example.musicplayer.ui.theme.Blue60
 import com.example.musicplayer.ui.theme.DividerColor
 import com.example.musicplayer.ui.theme.OnSurfacePrimary
 import com.example.musicplayer.ui.theme.OnSurfaceSecondary
@@ -137,7 +136,7 @@ fun MusicPlayerScreen(
                     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 10.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text(text = formatTime(currentPosition), color = OnSurfaceSecondary, fontSize = 10.sp)
-                            Slider(value = if (duration > 0) currentPosition.toFloat() / duration else 0f, onValueChange = { viewModel.seekTo((it * duration).toLong()) }, colors = SliderDefaults.colors(thumbColor = AccentRed, activeTrackColor = AccentRed, inactiveTrackColor = DividerColor), modifier = Modifier.weight(1f).height(20.dp).padding(horizontal = 4.dp))
+                            Slider(value = if (duration > 0) currentPosition.toFloat() / duration else 0f, onValueChange = { viewModel.seekTo((it * duration).toLong()) }, colors = SliderDefaults.colors(thumbColor = Blue60, activeTrackColor = Blue60, inactiveTrackColor = DividerColor), modifier = Modifier.weight(1f).height(20.dp).padding(horizontal = 4.dp))
                             Text(text = formatTime(duration), color = OnSurfaceSecondary, fontSize = 10.sp)
                         }
 
@@ -151,7 +150,11 @@ fun MusicPlayerScreen(
                                         label = "Настройки",
                                         onClick = { onMoveTo("settings") },
                                     )
-//                                    CategoryItem(icon = R.drawable.search, label = "Недавний")
+                                    CategoryItem(
+                                        icon = R.drawable.search,
+                                        label = "Поиск",
+                                        onClick = { onMoveTo("search") }
+                                    )
 //                                    CategoryItem(icon = R.drawable.folder, label = "Папки")
                                     CategoryItem(
                                         icon = R.drawable.play_arrow,
@@ -163,7 +166,11 @@ fun MusicPlayerScreen(
                                         label = "Альбомы",
                                         onClick = { onMoveTo("albums") },
                                     )
-//                                    CategoryItem(icon = R.drawable.skip_next, label = "Исполнители", onClick = { onMoveTo("artist") })
+                                    CategoryItem(
+                                        icon = R.drawable.skip_next,
+                                        label = "Исполнители",
+                                        onClick = { onMoveTo("artists") },
+                                    )
                                     CategoryItem(
                                         icon = R.drawable.favorite_outline,
                                         label = "Избранное",
@@ -210,10 +217,10 @@ fun MusicPlayerScreen(
                 // Extra controls
                 var showPlaylistDialog by remember { mutableStateOf(false) }
                 Row(modifier = Modifier.fillMaxWidth().onPlaced { border1Y = 0f }, horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { if (isShuffle) viewModel.disableShuffle() else viewModel.enableShuffle() }) { Icon(painterResource(R.drawable.shuffle), contentDescription = "Shuffle", tint = if (isShuffle) AccentRed else OnSurfaceSecondary, modifier = Modifier.size(22.dp)) }
+                    IconButton(onClick = { if (isShuffle) viewModel.disableShuffle() else viewModel.enableShuffle() }) { Icon(painterResource(R.drawable.shuffle), contentDescription = "Shuffle", tint = if (isShuffle) Blue60 else OnSurfaceSecondary, modifier = Modifier.size(22.dp)) }
                     IconButton(onClick = { showPlaylistDialog = true }) { Icon(painterResource(R.drawable.add_link), contentDescription = "Add to playlist", tint = OnSurfaceSecondary, modifier = Modifier.size(22.dp)) }
-                    IconButton(onClick = { if (isRepeat) viewModel.disableRepeat() else viewModel.enableRepeat() }) { Icon(painterResource(R.drawable.repeat_one), contentDescription = "Repeat", tint = if (isRepeat) AccentRed else OnSurfaceSecondary, modifier = Modifier.size(22.dp)) }
-                    IconButton(onClick = { viewModel.changeTrackFavoriteState(viewModel.currentTrack) }) { Icon(painterResource(if (isFavorite) R.drawable.favorite_filled else R.drawable.favorite_outline), contentDescription = "Favorite", tint = if (isFavorite) AccentRed else OnSurfaceSecondary, modifier = Modifier.size(22.dp)) }
+                    IconButton(onClick = { if (isRepeat) viewModel.disableRepeat() else viewModel.enableRepeat() }) { Icon(painterResource(R.drawable.repeat_one), contentDescription = "Repeat", tint = if (isRepeat) Blue60 else OnSurfaceSecondary, modifier = Modifier.size(22.dp)) }
+                    IconButton(onClick = { viewModel.changeTrackFavoriteState(viewModel.currentTrack) }) { Icon(painterResource(if (isFavorite) R.drawable.favorite_filled else R.drawable.favorite_outline), contentDescription = "Favorite", tint = if (isFavorite) Blue60 else OnSurfaceSecondary, modifier = Modifier.size(22.dp)) }
                 }
 
                 if (showPlaylistDialog) {
@@ -285,12 +292,12 @@ fun AddToPlaylistDialog(track: TrackDocument, allPlaylists: List<PlaylistDocumen
                 val playlistName = playlist.aliases.getOrElse(0) { "Unknown" }
                 val isChecked = checkedStates[playlist.id]?.value ?: false
                 Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { checkedStates[playlist.id]?.value = !isChecked; onToggle(playlist, !isChecked) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = isChecked, onCheckedChange = { checked -> checkedStates[playlist.id]?.value = checked; onToggle(playlist, checked) }, colors = CheckboxDefaults.colors(checkedColor = Amber60, uncheckedColor = OnSurfaceSecondary))
+                    Checkbox(checked = isChecked, onCheckedChange = { checked -> checkedStates[playlist.id]?.value = checked; onToggle(playlist, checked) }, colors = CheckboxDefaults.colors(checkedColor = Blue60, uncheckedColor = OnSurfaceSecondary))
                     Text(playlistName, color = OnSurfacePrimary, fontSize = 15.sp, modifier = Modifier.padding(start = 8.dp))
                 }
             }
         }
-    }, confirmButton = { IconButton(onClick = { onDismiss() }) { Text("Закрыть", color = Amber60, fontSize = 14.sp) } })
+    }, confirmButton = { IconButton(onClick = { onDismiss() }) { Text("Закрыть", color = Blue60, fontSize = 14.sp) } })
 }
 
 // --- Queue screen ---
@@ -348,6 +355,33 @@ fun AllTracksScreen(modifier: Modifier = Modifier, viewModel: MusicPlayerViewMod
         }
         Box(modifier = Modifier.weight(1f)) {
             LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) { items(items = viewModel.allTracks, key = { it.id }) { track -> TrackListItem(track = track, isActive = track == viewModel.currentTrack, coverUri = viewModel.getCoverUri(coverString = track.cover), onClick = { onTrackSelected(track) }) } }
+        }
+        BottomPlayerMini(viewModel)
+    }
+}
+
+// --- All creators screen ---
+@Composable
+fun AllCreatorsScreen(modifier: Modifier = Modifier, viewModel: MusicPlayerViewModel, onBack: () -> Unit = {}, onTrackSelected: (TrackDocument) -> Unit = {}) {
+    val listState = rememberLazyListState()
+    Column(modifier = modifier.fillMaxSize().systemBarsPadding().background(SurfaceDark)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = OnSurfacePrimary, modifier = Modifier.size(32.dp)) }
+            Text("Исполнители (${viewModel.allCreators.size})", color = OnSurfacePrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+        LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) {
+            items(items = viewModel.allCreators, key = { it.id }) { creator ->
+                val creatorName = creator.aliases.getOrElse(0) { CreatorDocument.UNKNOWN }
+                val trackCount = viewModel.allTracks.count { track -> track.creators.any { it.id == creator.id } }
+                Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
+                    val tracks = viewModel.allTracks.filter { track -> track.creators.any { it.id == creator.id } }
+                    if (tracks.isNotEmpty()) { viewModel.currentQueue = tracks.toMutableList(); viewModel.currentQueueIndex = 0; onTrackSelected(tracks.first()) }
+                }.padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    AlbumCover(modifier = Modifier.size(48.dp), label = creatorName, shape = RoundedCornerShape(8.dp))
+                    Spacer(Modifier.size(12.dp))
+                    Column(modifier = Modifier.weight(1f)) { Text(creatorName, color = OnSurfacePrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold); Text("$trackCount треков", color = OnSurfaceSecondary, fontSize = 13.sp) }
+                }
+            }
         }
         BottomPlayerMini(viewModel)
     }
