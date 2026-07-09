@@ -74,6 +74,9 @@ class MusicPlayerViewModel(
     var currentTrack by mutableStateOf(TrackDocument.createEmpty())
         private set
 
+    var currentListenInSec by androidx.compose.runtime.mutableIntStateOf(0)
+        private set
+
     var currentAlbum by mutableStateOf(AlbumDocument.createEmpty())
         internal set
 
@@ -289,6 +292,7 @@ class MusicPlayerViewModel(
         if (track.id != currentTrack.id) {
             Log.d(TAG, "Source Uri: ${track.sourceUri}")
             currentTrack = track
+            currentListenInSec = track.listenInSec
             isFavorite = favorites.tracklist.find { it == track } != null
             if (track.sourceUri.isEmpty()) {
                 Log.w(TAG, "Track ${track.id} has no source URI, cannot play")
@@ -356,22 +360,24 @@ class MusicPlayerViewModel(
                 currentPosition = duration - millisUntilFinished
                 if (lastListenModifiedTimeInMillis - millisUntilFinished >= 1000L) {
                     lastListenModifiedTimeInMillis = millisUntilFinished
-                    currentTrack.listenInSec++
-                    val trackId = currentTrack.id
+                    val updated = currentTrack.copy(listenInSec = currentTrack.listenInSec + 1)
+                    currentTrack = updated
+                    currentListenInSec = updated.listenInSec
+                    val trackId = updated.id
                     val idx = allTracks.indexOfFirst { it.id == trackId }
                     if (idx >= 0) {
-                        allTracks[idx] = currentTrack
+                        allTracks[idx] = updated
                     }
                     allPlaylists.forEach { playlist ->
                         val tIdx = playlist.tracklist.indexOfFirst { it.id == trackId }
                         if (tIdx >= 0) {
                             playlist.tracklist = playlist.tracklist.toMutableList().also {
-                                it[tIdx] = currentTrack
+                                it[tIdx] = updated
                             }
                         }
                     }
                     viewModelScope.launch {
-                        repository.incrementListen(currentTrack, currentTrack.creators)
+                        repository.incrementListen(updated, updated.creators)
                     }
                 }
             }
@@ -489,6 +495,35 @@ class MusicPlayerViewModel(
         allPlaylists[index].tracklist = playlist.tracklist
         viewModelScope.launch {
             repository.savePlaylist(allPlaylists[index])
+        }
+    }
+
+    fun adjustListenInSec(multiplier: Int) {
+        val durMs = duration
+        val durSec = ((durMs / 1000).toInt()).coerceAtLeast(1)
+        val track = currentTrack
+        val oldListen = track.listenInSec
+        val newListen = if (multiplier == 0) 0 else (oldListen + durSec * multiplier).coerceAtLeast(0)
+        val updated = track.copy(listenInSec = newListen)
+        currentTrack = updated
+        currentListenInSec = newListen
+
+        val idx = allTracks.indexOfFirst { it.id == track.id }
+        if (idx >= 0) {
+            allTracks[idx] = updated
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.saveTrack(updated)
+            updated.creators.forEach { creator ->
+                val crIdx = allCreators.indexOfFirst { it.id == creator.id }
+                if (crIdx >= 0) {
+                    val old = allCreators[crIdx]
+                    val newCr = old.copy(listenInSec = old.listenInSec + durSec * multiplier)
+                    allCreators[crIdx] = newCr
+                    repository.saveCreator(newCr)
+                }
+            }
         }
     }
 

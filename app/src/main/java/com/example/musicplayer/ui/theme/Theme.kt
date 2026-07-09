@@ -4,10 +4,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+private val DarkAmberScheme = darkColorScheme(
+    primary = Amber60,
+    onPrimary = SurfaceDark,
+    secondary = Amber40,
+    onSecondary = SurfaceDark,
+    background = SurfaceDark,
+    onBackground = OnSurfacePrimary,
+    surface = SurfaceVariant,
+    onSurface = OnSurfacePrimary,
+    surfaceVariant = SurfaceCard,
+    onSurfaceVariant = OnSurfaceSecondary,
+    outline = DividerColor,
+    error = AccentRed,
 )
 
 @Composable
@@ -15,7 +24,7 @@ fun MusicPlayerTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = DarkColorScheme,
+        colorScheme = DarkAmberScheme,
         typography = Typography,
         content = content
     )

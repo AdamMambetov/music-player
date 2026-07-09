@@ -7,18 +7,48 @@ import android.provider.Settings
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import com.example.musicplayer.MusicPlayerViewModel
 import com.example.musicplayer.R
+import com.example.musicplayer.ui.theme.Amber60
+import com.example.musicplayer.ui.theme.OnSurfacePrimary
+import com.example.musicplayer.ui.theme.OnSurfaceSecondary
+import com.example.musicplayer.ui.theme.SurfaceCard
+import com.example.musicplayer.ui.theme.SurfaceDark
 
 private const val EMPTY_PATH = "Not set"
 
@@ -26,226 +56,117 @@ private const val EMPTY_PATH = "Not set"
 fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: MusicPlayerViewModel,
+    onBack: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var notePath by remember { mutableStateOf(EMPTY_PATH) }
     var musicPath by remember { mutableStateOf(EMPTY_PATH) }
     var fullStorageAccessGranted by remember { mutableStateOf(false) }
     val pathHelper = viewModel.pathHelper
-    
-    // Check current permission status when the screen loads
+
     LaunchedEffect(key1 = Unit) {
         fullStorageAccessGranted = Environment.isExternalStorageManager()
-
         val storedNotePath = pathHelper.getNotesFolderPath()
-        notePath = if (storedNotePath.isEmpty()) EMPTY_PATH
-            else pathHelper.getPathFromUri(uri = storedNotePath.toUri())
-
+        notePath = if (storedNotePath.isEmpty()) EMPTY_PATH else pathHelper.getPathFromUri(uri = storedNotePath.toUri())
         val storedMusicPath = pathHelper.getTracksFolderPath()
-        musicPath = if (storedMusicPath.isEmpty()) EMPTY_PATH
-            else pathHelper.getPathFromUri(uri = storedMusicPath.toUri())
+        musicPath = if (storedMusicPath.isEmpty()) EMPTY_PATH else pathHelper.getPathFromUri(uri = storedMusicPath.toUri())
     }
 
-    // Launchers for directory picking
-    val notePathLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree(),
-    ) { uri ->
+    val notePathLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocumentTree()) { uri ->
         val path = pathHelper.getPathFromUri(uri = uri)
         if (path.isNotEmpty()) {
-            // Take URI permission to persist access across app restarts
             try {
-                val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                context.contentResolver.takePersistableUriPermission(
-                    uri!!,
-                    takeFlags,
-                )
-            } catch (e: SecurityException) {
-                Log.e("SettingsScreen", "Failed to take URI permission: ${e.message}")
-            }
-
+                val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(uri!!, takeFlags)
+            } catch (e: SecurityException) { Log.e("SettingsScreen", "Failed to take URI permission: ${e.message}") }
             pathHelper.setNotesFolderPath(path = uri.toString())
             notePath = path
         }
     }
-    
-    val trackPathLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree(),
-    ) { uri ->
+
+    val trackPathLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocumentTree()) { uri ->
         val path = pathHelper.getPathFromUri(uri = uri)
         if (path.isNotEmpty()) {
-            // Take URI permission to persist access across app restarts
-            try {
-                context.contentResolver.takePersistableUriPermission(
-                    uri!!,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                )
-            } catch (e: SecurityException) {
-                Log.e("SettingsScreen", "Failed to take URI permission: ${e.message}")
-            }
-
+            try { context.contentResolver.takePersistableUriPermission(uri!!, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            catch (e: SecurityException) { Log.e("SettingsScreen", "Failed to take URI permission: ${e.message}") }
             pathHelper.setTracksFolderPath(path = uri.toString())
             musicPath = path
         }
     }
 
-    // Launcher for full storage access (MANAGE_EXTERNAL_STORAGE)
-    val fullStorageAccessLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
+    val fullStorageAccessLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.StartActivityForResult()) {
         fullStorageAccessGranted = Environment.isExternalStorageManager()
     }
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
+        modifier = modifier.fillMaxSize().systemBarsPadding().background(SurfaceDark).padding(16.dp)
     ) {
-        // Storage permission setting
-        SettingItemWithButton(
-            title = "Storage Access",
-            currentValue = if (fullStorageAccessGranted) "Granted" else "Not Granted",
-            buttonLabel = if (fullStorageAccessGranted) "Granted" else "Request",
-            onButtonClick = {
-                // For Android 11+, request full storage access
-                val intent = Intent(
-                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                ).apply {
-                    data = "package:${context.packageName}".toUri()
-                }
-                fullStorageAccessLauncher.launch(intent)
+        Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { onBack() }) {
+                Icon(painter = painterResource(R.drawable.back), contentDescription = "Back", tint = OnSurfacePrimary, modifier = Modifier.size(32.dp))
             }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Note Path setting
-        SettingItem(
-            title = "Note Path",
-            currentValue = notePath,
-            onButtonClick = { notePathLauncher.launch(null) }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Music Path setting
-        SettingItem(
-            title = "Music Path",
-            currentValue = musicPath,
-            onButtonClick = { trackPathLauncher.launch(null) }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            modifier = Modifier.fillMaxWidth(),
-            onClick = { viewModel.scanAll(true) },
-        ) {
-            Text(text = "Clean Index and Rescan")
+            Text(text = "Настройки", color = OnSurfacePrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         }
 
-        Button(
+        Card(
             modifier = Modifier.fillMaxWidth(),
-            onClick = { viewModel.scanAll(false) },
+            colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+            shape = RoundedCornerShape(12.dp),
         ) {
+            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Storage Access", color = OnSurfacePrimary, style = MaterialTheme.typography.titleMedium)
+                    Text(if (fullStorageAccessGranted) "Granted" else "Not Granted", color = OnSurfaceSecondary, style = MaterialTheme.typography.bodyMedium)
+                }
+                Button(onClick = {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply { data = "package:${context.packageName}".toUri() }
+                    fullStorageAccessLauncher.launch(intent)
+                }, colors = ButtonDefaults.buttonColors(containerColor = Amber60)) {
+                    Text(if (fullStorageAccessGranted) "Granted" else "Request")
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        SettingsCard(title = "Note Path", subtitle = notePath) { notePathLauncher.launch(null) }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        SettingsCard(title = "Music Path", subtitle = musicPath) { trackPathLauncher.launch(null) }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(modifier = Modifier.fillMaxWidth(), onClick = { viewModel.scanAll(true) }, colors = ButtonDefaults.buttonColors(containerColor = Amber60)) {
+            Text(text = "Clean Index and Rescan")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(modifier = Modifier.fillMaxWidth(), onClick = { viewModel.scanAll(false) }, colors = ButtonDefaults.buttonColors(containerColor = Amber60)) {
             Text(text = "Rescan")
         }
     }
 }
 
 @Composable
-fun SettingItem(
-    title: String,
-    currentValue: String,
-    onButtonClick: () -> Unit
-) {
+private fun SettingsCard(title: String, subtitle: String, onClick: () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+        shape = RoundedCornerShape(12.dp),
+        onClick = onClick,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier.weight(1f) // Give the text content a weight so it doesn't take all space
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = currentValue,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, color = OnSurfacePrimary, style = MaterialTheme.typography.titleMedium)
+                Text(subtitle, color = OnSurfaceSecondary, style = MaterialTheme.typography.bodyMedium)
             }
-            
-            IconButton(
-                onClick = onButtonClick,
-                modifier = Modifier.size(48.dp) // Adding minimum size for visibility
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.folder),
-                    contentDescription = "Select $title"
-                )
-            }
-        }
-    }
-}
-
-// New composable for settings with button
-@Composable
-fun SettingItemWithButton(
-    title: String,
-    currentValue: String,
-    buttonLabel: String,
-    onButtonClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = currentValue,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            
-            Button(onClick = onButtonClick) {
-                Text(buttonLabel)
+            IconButton(onClick = onClick) {
+                Icon(painter = painterResource(R.drawable.folder), contentDescription = "Select $title", tint = OnSurfaceSecondary)
             }
         }
     }
 }
 
 @SuppressLint("ViewModelConstructorInComposable")
-@Preview(showBackground = true)
+@Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun SettingsScreenPreview() {
-    // Create a mock launcher that doesn't actually launch anything for preview
-    SettingsScreen(viewModel = MusicPlayerViewModel(
-        context = LocalContext.current,
-    )
-    )
+    SettingsScreen(viewModel = MusicPlayerViewModel(LocalContext.current))
 }

@@ -59,53 +59,49 @@ abstract class MarkdownReaderBase {
             .iterator()
             .next()
             .next()?.range?.start ?: 0
-        var matches = frontMatterRegex.findAll(text)
-        var hasAllKeys = false
 
-        while (!hasAllKeys) {
-            hasAllKeys = true
-            for ((key, value) in yamlMap) {
-                if (!text.contains("$key:") || text.indexOf("$key:") > endIndex) {
-                    val block = if (value.startsWith(yamlListIndent)) {
-                        "$key:\n$value\n"
-                    } else {
-                        "$key: $value\n"
-                    }
-                    text = text.substring(0, endIndex) +
-                            block +
-                            text.substring(endIndex)
-                    hasAllKeys = false
-                    break
+        // Phase 1: add missing keys
+        for ((key, value) in yamlMap) {
+            if (!text.contains("$key:") || text.indexOf("$key:") > endIndex) {
+                val block = if (value.startsWith(yamlListIndent)) {
+                    "$key:\n$value\n"
+                } else {
+                    "$key: $value\n"
                 }
+                text = text.substring(0, endIndex) + block + text.substring(endIndex)
+                endIndex = frontMatterDashesRegex
+                    .findAll(text)
+                    .iterator()
+                    .next()
+                    .next()?.range?.start ?: 0
             }
-            matches = frontMatterRegex.findAll(text)
-            endIndex = frontMatterDashesRegex
-                .findAll(text)
-                .iterator()
-                .next()
-                .next()?.range?.start ?: 0
         }
 
+        // Phase 2: replace existing values
+        var matches = frontMatterRegex.findAll(text).toList()
         for (match in matches) {
             if (match.range.first > endIndex)
                 break
 
             val line = match.groups[0]!!.value
             val key = match.groups[1]!!.value
-            if (!yamlMap.contains(key))
+            if (key !in yamlMap)
                 continue
 
             val value = yamlMap[key]!!
             if (value.startsWith(yamlListIndent)) {
-                val index = frontMatterRegex
-                    .find(input = text, startIndex = match.range.last + 2)
-                    ?.range
-                    ?.first ?: endIndex
+                val nextMatch = frontMatterRegex.find(text, startIndex = match.range.last + 2)
+                val nextStart = nextMatch?.range?.first ?: endIndex
                 text = text.replaceRange(
                     startIndex = match.range.first,
-                    endIndex = min(index, endIndex),
+                    endIndex = min(nextStart, endIndex),
                     replacement = "$key:\n$value\n",
                 )
+                endIndex = frontMatterDashesRegex
+                    .findAll(text)
+                    .iterator()
+                    .next()
+                    .next()?.range?.start ?: 0
             } else {
                 text = text.replaceFirst(line, "$key: $value")
             }
