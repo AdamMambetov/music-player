@@ -75,7 +75,6 @@ class MusicPlayerViewModel(
         private set
 
     var currentListenInSec by androidx.compose.runtime.mutableIntStateOf(0)
-        private set
 
     var currentAlbum by mutableStateOf(AlbumDocument.createEmpty())
         internal set

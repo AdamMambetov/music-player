@@ -34,6 +34,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -99,6 +100,7 @@ fun MusicPlayerScreen(
     val artists = viewModel.currentTrack.creators.joinToString(", ") {
         it.aliases.getOrElse(0) { CreatorDocument.UNKNOWN }
     }.ifEmpty { CreatorDocument.UNKNOWN }
+    val currentListen = viewModel.currentListenInSec
 
     val coverUri = rememberCoverUri(viewModel)
 
@@ -139,6 +141,7 @@ fun MusicPlayerScreen(
                             Slider(value = if (duration > 0) currentPosition.toFloat() / duration else 0f, onValueChange = { viewModel.seekTo((it * duration).toLong()) }, colors = SliderDefaults.colors(thumbColor = Blue60, activeTrackColor = Blue60, inactiveTrackColor = DividerColor), modifier = Modifier.weight(1f).height(20.dp).padding(horizontal = 4.dp))
                             Text(text = formatTime(duration), color = OnSurfaceSecondary, fontSize = 10.sp)
                         }
+                        Spacer(Modifier.height(10.dp))
 
                         // Border 3
                         Box(modifier = Modifier.fillMaxWidth().weight(1f).padding(top = 4.dp).onPlaced { border3Y = it.positionInParent().y + border2Y + with(density) { 10.dp.toPx() }; border3H = it.size.height.toFloat() }) {
@@ -194,7 +197,7 @@ fun MusicPlayerScreen(
                                     }
                                 }
                                 Spacer(Modifier.height(4.dp))
-                                ListenStats(viewModel)
+                                ListenStats(viewModel, currentListen)
                             }
                         }
 
@@ -243,8 +246,7 @@ fun MusicPlayerScreen(
 }
 
 @Composable
-private fun ListenStats(viewModel: MusicPlayerViewModel) {
-    val listenSec = viewModel.currentListenInSec
+private fun ListenStats(viewModel: MusicPlayerViewModel, listenSec: Int) {
     val rank = viewModel.allTracks.sortedByDescending { it.listenInSec }.indexOfFirst { it.id == viewModel.currentTrack.id } + 1
     val days = listenSec / 86400
     val hours = (listenSec % 86400) / 3600

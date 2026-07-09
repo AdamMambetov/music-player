@@ -29,12 +29,11 @@ data class TrackDocument(
     val coverOf: String = "",
 ) {
     override fun equals(other: Any?): Boolean {
-        if (other !is TrackDocument)
-            return false
-        return other.id == id
+        if (other !is TrackDocument) return false
+        return other.id == id && other.listenInSec == listenInSec
     }
 
-    override fun hashCode(): Int = id.hashCode()
+    override fun hashCode(): Int = id.hashCode() * 31 + listenInSec
 
     fun getCreatedDate(): Calendar {
         return Calendar
