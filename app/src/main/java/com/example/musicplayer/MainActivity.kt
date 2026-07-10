@@ -27,14 +27,15 @@ import androidx.media3.common.util.UnstableApi
 import com.example.musicplayer.ui.screen.AlbumTracks
 import com.example.musicplayer.ui.screen.AllAlbums
 import com.example.musicplayer.ui.screen.AllCreatorsScreen
-import com.example.musicplayer.ui.screen.CreatorTracksScreen
 import com.example.musicplayer.ui.screen.AllPlaylists
 import com.example.musicplayer.ui.screen.AllTracksScreen
+import com.example.musicplayer.ui.screen.CreatorTracksScreen
 import com.example.musicplayer.ui.screen.MusicPlayerScreen
 import com.example.musicplayer.ui.screen.PlaylistTracks
 import com.example.musicplayer.ui.screen.QueueTracksScreen
 import com.example.musicplayer.ui.screen.SearchScreen
 import com.example.musicplayer.ui.screen.SettingsScreen
+import com.example.musicplayer.ui.screen.TrackCreatorsScreen
 import com.example.musicplayer.ui.theme.MusicPlayerTheme
 
 class MainActivity : ComponentActivity() {
@@ -122,8 +123,9 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
             allAlbums = viewModel.allAlbums,
             onAlbumSelected = { album ->
                 viewModel.currentAlbum = album
-                screen = "albumTracks"
-            }
+                screen = "album"
+            },
+            onBack = { screen = "home" }
         )
 
         "album" -> AlbumTracks(
@@ -134,15 +136,16 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
                 viewModel.currentQueueIndex = viewModel.currentAlbum.tracklist.indexOf(track)
                 viewModel.setMediaSourceWithService(track)
             },
-            onBackClicked = { screen = "album" }
+            onBack = { screen = "albums" }
         )
 
-        "artist" -> CreatorTracksScreen(
+        "trackCreators" -> TrackCreatorsScreen(
             modifier = Modifier.fillMaxSize(),
             viewModel = viewModel,
             onBack = { screen = "home" },
-            onTrackSelected = { track ->
-                viewModel.setMediaSourceWithService(track)
+            onCreatorSelected = { creator ->
+                viewModel.currentCreator = creator
+                screen = "creator"
             }
         )
 
@@ -157,6 +160,14 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
             viewModel = viewModel,
             onTrackSelected = { track ->
                 viewModel.setMediaSourceWithService(track)
+            },
+            onAlbumSelected = { album ->
+                viewModel.currentAlbum = album
+                screen = "album"
+            },
+            onCreatorSelected = { creator ->
+                viewModel.currentCreator = creator
+                screen = "creator"
             },
             onBack = { screen = "home" }
         )
@@ -182,10 +193,23 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
             onBack = { screen = "playlists" }
         )
 
-        "artists" -> AllCreatorsScreen(
+        "creators" -> AllCreatorsScreen(
             modifier = Modifier.fillMaxSize(),
             viewModel = viewModel,
-            onBack = { screen = "home" }
+            onBack = { screen = "home" },
+            onCreatorSelected = { creator ->
+                viewModel.currentCreator = creator
+                screen = "creator"
+            }
+        )
+
+        "creator" -> CreatorTracksScreen(
+            modifier = Modifier.fillMaxSize(),
+            viewModel = viewModel,
+            onBack = { screen = "home" },
+            onTrackSelected = { track ->
+                viewModel.setMediaSourceWithService(track)
+            }
         )
     }
 }

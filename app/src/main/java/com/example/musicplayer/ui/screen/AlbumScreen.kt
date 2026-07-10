@@ -22,7 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,16 +47,39 @@ fun AllAlbums(
     onBack: () -> Unit = {},
 ) {
     Column(
-        modifier = modifier.fillMaxSize().systemBarsPadding().background(SurfaceDark)
+        modifier = modifier
+            .fillMaxSize()
+            .systemBarsPadding()
+            .background(SurfaceDark)
     ) {
-        Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = OnSurfacePrimary, modifier = Modifier.size(32.dp)) }
-            Text("Альбомы (${allAlbums.size})", color = OnSurfacePrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { onBack() }) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = OnSurfacePrimary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            Text(
+                "Альбомы (${allAlbums.size})",
+                color = OnSurfacePrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
 
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
+        LazyColumn(modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 8.dp)) {
             items(items = allAlbums, key = { it.id }) { album ->
-                val albumName = album.aliases.getOrElse(0) { AlbumDocument.UNKNOWN }.ifEmpty { AlbumDocument.UNKNOWN }
+                val albumName = album.aliases.getOrElse(0) { AlbumDocument.UNKNOWN }
+                    .ifEmpty { AlbumDocument.UNKNOWN }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -66,11 +88,21 @@ fun AllAlbums(
                         .padding(horizontal = 12.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    AlbumCover(modifier = Modifier.size(56.dp), label = albumName, shape = RoundedCornerShape(10.dp))
+                    AlbumCover(
+                        modifier = Modifier.size(56.dp),
+                        label = albumName,
+                        shape = RoundedCornerShape(10.dp)
+                    )
                     Spacer(Modifier.size(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(albumName, color = OnSurfacePrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Text(album.creators.joinToString(", ") { it.aliases.getOrElse(0) { "Unknown" } }.ifEmpty { "Unknown" }, color = OnSurfaceSecondary, fontSize = 13.sp)
+                        Text(
+                            albumName,
+                            color = OnSurfacePrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(album.creators.joinToString(", ") { it.aliases.getOrElse(0) { "Unknown" } }
+                            .ifEmpty { "Unknown" }, color = OnSurfaceSecondary, fontSize = 13.sp)
                     }
                     Text("${album.tracklist.size}", color = OnSurfaceSecondary, fontSize = 14.sp)
                 }
@@ -84,25 +116,49 @@ fun AlbumTracks(
     modifier: Modifier = Modifier,
     viewModel: MusicPlayerViewModel,
     onTrackSelected: (TrackDocument) -> Unit = {},
-    onBackClicked: () -> Unit = {},
-    album: AlbumDocument = remember { viewModel.currentAlbum },
+    onBack: () -> Unit = {},
 ) {
     val listState = rememberLazyListState()
-    val albumName = album.aliases.getOrElse(0) { AlbumDocument.UNKNOWN }
+    val currentAlbum = viewModel.currentAlbum
+    val albumName = currentAlbum.aliases.getOrElse(0) { AlbumDocument.UNKNOWN }
 
-    Column(modifier = modifier.fillMaxSize().systemBarsPadding().background(SurfaceDark)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { onBackClicked() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = OnSurfacePrimary, modifier = Modifier.size(32.dp)) }
-            Text(albumName, color = OnSurfacePrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    Column(modifier = modifier
+        .fillMaxSize()
+        .systemBarsPadding()
+        .background(SurfaceDark)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { onBack() }) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = OnSurfacePrimary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            Text(
+                albumName,
+                color = OnSurfacePrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
 
         Box(modifier = Modifier.weight(1f)) {
             LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) {
-                items(items = album.tracklist, key = { it.id }) { track ->
-                    TrackListItem(track = track, isActive = track == viewModel.currentTrack, coverUri = viewModel.getCoverUri(coverString = track.cover), onClick = { onTrackSelected(track) })
+                items(items = currentAlbum.tracklist, key = { it.id }) { track ->
+                    TrackListItem(
+                        track = track,
+                        isActive = track.id == viewModel.currentTrack.id,
+                        coverUri = viewModel.getCoverUri(coverString = track.cover),
+                        onClick = { onTrackSelected(track) })
                 }
             }
-            BottomScrollControls(listState, viewModel, album.tracklist)
+            BottomScrollControls(listState, viewModel, currentAlbum.tracklist)
         }
 
         BottomPlayerMini(viewModel)
@@ -113,5 +169,5 @@ fun AlbumTracks(
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun AlbumTracksPreview() {
-    AlbumTracks(viewModel = MusicPlayerViewModel(LocalContext.current), album = AlbumDocument.createEmpty().copy(tracklist = listOf(TrackDocument.createEmpty())))
+    AlbumTracks(viewModel = MusicPlayerViewModel(LocalContext.current))
 }

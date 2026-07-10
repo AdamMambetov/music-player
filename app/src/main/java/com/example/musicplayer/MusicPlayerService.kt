@@ -3,17 +3,18 @@ package com.example.musicplayer
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Build
-import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.widget.RemoteViews
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
+import androidx.core.net.toUri
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -51,43 +52,46 @@ class MusicPlayerService : MediaSessionService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private lateinit var pathHelper: com.example.musicplayer.mdreader.PathHelper
 
-    private val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == "replay_gain_enabled") {
-            val player = exoPlayer ?: return@OnSharedPreferenceChangeListener
-            if (!pathHelper.isReplayGainEnabled()) {
-                gainProcessor.setGainDb(0f)
-                showToast("RG off")
-            } else {
-                val uri = player.currentMediaItem?.localConfiguration?.uri ?: return@OnSharedPreferenceChangeListener
-                val trackId = player.currentMediaItem?.mediaMetadata?.extras?.getString("track_id")
-                serviceScope.launch {
-                    val result = getOrAnalyzeGain(trackId, uri)
-                    val gainDb = result.trackGainDb ?: 0f
-                    gainProcessor.setGainDb(gainDb, result.peakLevelDb)
-                    showToast("RG: %.1f dB (peak: %.1f)".format(gainDb, result.peakLevelDb))
+    private val prefsListener =
+        android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "replay_gain_enabled") {
+                val player = exoPlayer ?: return@OnSharedPreferenceChangeListener
+                if (!pathHelper.isReplayGainEnabled()) {
+                    gainProcessor.setGainDb(0f)
+                } else {
+                    val uri = player.currentMediaItem?.localConfiguration?.uri
+                        ?: return@OnSharedPreferenceChangeListener
+                    val trackId =
+                        player.currentMediaItem?.mediaMetadata?.extras?.getString("track_id")
+                    serviceScope.launch {
+                        val result = getOrAnalyzeGain(trackId, uri)
+                        val gainDb = result.trackGainDb ?: 0f
+                        gainProcessor.setGainDb(gainDb, result.peakLevelDb)
+                    }
                 }
             }
         }
-    }
 
-    private fun showToast(msg: String) {
-        handler.post {
-            android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_SHORT).show()
+    private suspend fun getOrAnalyzeGain(trackId: String?, uri: android.net.Uri): AnalysisResult =
+        kotlinx.coroutines.withContext(
+            Dispatchers.IO
+        ) {
+            if (trackId != null) {
+                val cached =
+                    com.example.musicplayer.data.PostgresDataSource.instance?.getTrackGain(trackId)
+                if (cached != null) return@withContext cached
+            }
+            val result = replayGain.analyzeTrack(this@MusicPlayerService, uri)
+            if (trackId != null) {
+                val gainDb = result.trackGainDb ?: 0f
+                com.example.musicplayer.data.PostgresDataSource.instance?.putTrackGain(
+                    trackId,
+                    gainDb,
+                    result.peakLevelDb
+                )
+            }
+            result
         }
-    }
-
-    private suspend fun getOrAnalyzeGain(trackId: String?, uri: android.net.Uri): AnalysisResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        if (trackId != null) {
-            val cached = com.example.musicplayer.data.PostgresDataSource.instance?.getTrackGain(trackId)
-            if (cached != null) return@withContext cached
-        }
-        val result = replayGain.analyzeTrack(this@MusicPlayerService, uri)
-        if (trackId != null) {
-            val gainDb = result.trackGainDb ?: 0f
-            com.example.musicplayer.data.PostgresDataSource.instance?.putTrackGain(trackId, gainDb, result.peakLevelDb)
-        }
-        result
-    }
 
     companion object {
         const val NOTIFICATION_CHANNEL_ID = "music_player_channel"
@@ -151,7 +155,6 @@ class MusicPlayerService : MediaSessionService() {
                     val result = getOrAnalyzeGain(trackId, uri)
                     val gainDb = result.trackGainDb ?: 0f
                     gainProcessor.setGainDb(gainDb, result.peakLevelDb)
-                    showToast("RG: %.1f dB (peak: %.1f)".format(gainDb, result.peakLevelDb))
                 }
             }
         }
@@ -234,7 +237,7 @@ class MusicPlayerService : MediaSessionService() {
                 override fun onMediaButtonEvent(
                     session: MediaSession,
                     controller: MediaSession.ControllerInfo,
-                    mediaButtonIntent: android.content.Intent
+                    mediaButtonIntent: Intent
                 ): Boolean {
                     val event = mediaButtonIntent.getParcelableExtra<android.view.KeyEvent>(
                         "android.intent.extra.KEY_EVENT"
@@ -381,7 +384,7 @@ class MusicPlayerService : MediaSessionService() {
 
     private fun loadCoverBitmap(coverUri: String): Bitmap? {
         return try {
-            val uri = android.net.Uri.parse(coverUri)
+            val uri = coverUri.toUri()
             contentResolver.openInputStream(uri)?.use { inputStream ->
                 BitmapFactory.decodeStream(inputStream)
             }

@@ -64,5 +64,7 @@ data class TrackDocument(
 
 data class TrackListState(
     val trackList: List<TrackDocument> = emptyList(),
+    val albumList: List<AlbumDocument> = emptyList(),
+    val creatorList: List<CreatorDocument> = emptyList(),
     val searchQuery: String = "",
 )

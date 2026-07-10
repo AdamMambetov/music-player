@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.example.musicplayer.MusicPlayerViewModel
 import com.example.musicplayer.R
+import com.example.musicplayer.data.AlbumDocument
 import com.example.musicplayer.data.CreatorDocument
 import com.example.musicplayer.data.PlaylistDocument
 import com.example.musicplayer.data.TrackDocument
@@ -119,33 +120,124 @@ fun MusicPlayerScreen(
             .systemBarsPadding()
             .drawWithContent {
                 drawContent()
-                drawRoundRect(color = BorderColor, topLeft = Offset(0f, border1Y), size = Size(size.width, tabsY - border1Y - with(density) { 4.dp.toPx() }), cornerRadius = CornerRadius(with(density) { 20.dp.toPx() }), style = stroke)
-                drawRoundRect(color = BorderColor, topLeft = Offset(0f, border2Y), size = Size(size.width, border2H), cornerRadius = CornerRadius(with(density) { 16.dp.toPx() }), style = stroke)
-                drawRoundRect(color = BorderColor, topLeft = Offset(0f, border3Y), size = Size(size.width, border3H), cornerRadius = CornerRadius(with(density) { 14.dp.toPx() }), style = stroke)
+                drawRoundRect(
+                    color = BorderColor,
+                    topLeft = Offset(0f, border1Y),
+                    size = Size(size.width, tabsY - border1Y - with(density) { 4.dp.toPx() }),
+                    cornerRadius = CornerRadius(with(density) { 20.dp.toPx() }),
+                    style = stroke
+                )
+                drawRoundRect(
+                    color = BorderColor,
+                    topLeft = Offset(0f, border2Y),
+                    size = Size(size.width, border2H),
+                    cornerRadius = CornerRadius(with(density) { 16.dp.toPx() }),
+                    style = stroke
+                )
+                drawRoundRect(
+                    color = BorderColor,
+                    topLeft = Offset(0f, border3Y),
+                    size = Size(size.width, border3H),
+                    cornerRadius = CornerRadius(with(density) { 14.dp.toPx() }),
+                    style = stroke
+                )
             }
             .background(Brush.verticalGradient(listOf(SurfaceDark, Color(0xFF2A1F14), SurfaceDark)))
     ) {
-        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-            Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+            ) {
                 Spacer(Modifier.height(12.dp))
-                Text(name, color = OnSurfacePrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(artists, color = OnSurfaceSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    name,
+                    color = OnSurfacePrimary,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    artists,
+                    color = OnSurfaceSecondary,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
                 Spacer(Modifier.height(6.dp))
 
                 // Border 2
-                Box(modifier = Modifier.fillMaxWidth().weight(1f).onPlaced { border2Y = it.positionInParent().y; border2H = it.size.height.toFloat() }) {
-                    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 10.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = formatTime(currentPosition), color = OnSurfaceSecondary, fontSize = 10.sp)
-                            Slider(value = if (duration > 0) currentPosition.toFloat() / duration else 0f, onValueChange = { viewModel.seekTo((it * duration).toLong()) }, colors = SliderDefaults.colors(thumbColor = Blue60, activeTrackColor = Blue60, inactiveTrackColor = DividerColor), modifier = Modifier.weight(1f).height(20.dp).padding(horizontal = 4.dp))
-                            Text(text = formatTime(duration), color = OnSurfaceSecondary, fontSize = 10.sp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .onPlaced {
+                            border2Y = it.positionInParent().y; border2H = it.size.height.toFloat()
+                        }) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 10.dp, vertical = 10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = formatTime(currentPosition),
+                                color = OnSurfaceSecondary,
+                                fontSize = 10.sp
+                            )
+                            Slider(
+                                value = if (duration > 0) currentPosition.toFloat() / duration else 0f,
+                                onValueChange = { viewModel.seekTo((it * duration).toLong()) },
+                                colors = SliderDefaults.colors(
+                                    thumbColor = Blue60,
+                                    activeTrackColor = Blue60,
+                                    inactiveTrackColor = DividerColor
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(20.dp)
+                                    .padding(horizontal = 4.dp)
+                            )
+                            Text(
+                                text = formatTime(duration),
+                                color = OnSurfaceSecondary,
+                                fontSize = 10.sp
+                            )
                         }
                         Spacer(Modifier.height(10.dp))
 
                         // Border 3
-                        Box(modifier = Modifier.fillMaxWidth().weight(1f).padding(top = 4.dp).onPlaced { border3Y = it.positionInParent().y + border2Y + with(density) { 10.dp.toPx() }; border3H = it.size.height.toFloat() }) {
-                            Column(modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp)) {
-                                Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .padding(top = 4.dp)
+                                .onPlaced {
+                                    border3Y =
+                                        it.positionInParent().y + border2Y + with(density) { 10.dp.toPx() }; border3H =
+                                    it.size.height.toFloat()
+                                }) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.SpaceEvenly
+                                ) {
 //                                    CategoryItem(icon = R.drawable.album, label = "Новое")
                                     CategoryItem(
                                         icon = R.drawable.settings,
@@ -169,9 +261,9 @@ fun MusicPlayerScreen(
                                         onClick = { onMoveTo("albums") },
                                     )
                                     CategoryItem(
-                                        icon = R.drawable.skip_next,
-                                        label = "Исполнители",
-                                        onClick = { onMoveTo("artists") },
+                                        icon = R.drawable.creators,
+                                        label = "Артисты",
+                                        onClick = { onMoveTo("creators") },
                                     )
                                     CategoryItem(
                                         icon = R.drawable.favorite_outline,
@@ -188,11 +280,29 @@ fun MusicPlayerScreen(
                                     )
                                 }
                                 Spacer(Modifier.height(8.dp))
-                                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth(),
+                                    contentAlignment = Alignment.Center
+                                ) {
                                     if (coverUri.isNotEmpty()) {
-                                        AsyncImage(model = coverUri, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)))
+                                        AsyncImage(
+                                            model = coverUri,
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Fit,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(12.dp))
+                                        )
                                     } else {
-                                        AlbumCover(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)), label = name, shape = RoundedCornerShape(12.dp))
+                                        AlbumCover(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(12.dp)),
+                                            label = name,
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
                                     }
                                 }
                                 Spacer(Modifier.height(4.dp))
@@ -200,45 +310,158 @@ fun MusicPlayerScreen(
                             }
                         }
 
-                        Row(modifier = Modifier.fillMaxWidth().onPlaced { border3H = it.size.height.toFloat() + with(density) { 24.dp.toPx() } }, horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { viewModel.previousTrack() }, modifier = Modifier.size(48.dp)) { Icon(painterResource(R.drawable.skip_previous), contentDescription = "Previous", tint = OnSurfacePrimary, modifier = Modifier.size(28.dp)) }
-                            IconButton(onClick = { if (isPlaying) viewModel.pause() else viewModel.play() }, modifier = Modifier.size(64.dp)) { Icon(painterResource(if (isPlaying) R.drawable.pause else R.drawable.play_arrow), contentDescription = if (isPlaying) "Pause" else "Play", tint = OnSurfacePrimary, modifier = Modifier.size(46.dp)) }
-                            IconButton(onClick = { viewModel.nextTrack() }, modifier = Modifier.size(48.dp)) { Icon(painterResource(R.drawable.skip_next), contentDescription = "Next", tint = OnSurfacePrimary, modifier = Modifier.size(28.dp)) }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onPlaced {
+                                    border3H =
+                                        it.size.height.toFloat() + with(density) { 24.dp.toPx() }
+                                },
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(
+                                onClick = { viewModel.previousTrack() },
+                                modifier = Modifier.size(48.dp)
+                            ) {
+                                Icon(
+                                    painterResource(R.drawable.skip_previous),
+                                    contentDescription = "Previous",
+                                    tint = OnSurfacePrimary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = { if (isPlaying) viewModel.pause() else viewModel.play() },
+                                modifier = Modifier.size(64.dp)
+                            ) {
+                                Icon(
+                                    painterResource(if (isPlaying) R.drawable.pause else R.drawable.play_arrow),
+                                    contentDescription = if (isPlaying) "Pause" else "Play",
+                                    tint = OnSurfacePrimary,
+                                    modifier = Modifier.size(46.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewModel.nextTrack() },
+                                modifier = Modifier.size(48.dp)
+                            ) {
+                                Icon(
+                                    painterResource(R.drawable.skip_next),
+                                    contentDescription = "Next",
+                                    tint = OnSurfacePrimary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
                         }
                     }
                 }
 
                 // Listen adjust
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     listOf(-10, -1, 0, 1, 10).forEach { multi ->
-                        val label = when (multi) { -10 -> "-10"; -1 -> "-1"; 0 -> "0"; 1 -> "+1"; else -> "+10" }
-                        IconButton(onClick = { viewModel.adjustListenInSec(multi) }) { Text(label, color = OnSurfaceSecondary, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                        val label = when (multi) {
+                            -10 -> "-10"; -1 -> "-1"; 0 -> "0"; 1 -> "+1"; else -> "+10"
+                        }
+                        IconButton(onClick = { viewModel.adjustListenInSec(multi) }) {
+                            Text(
+                                label,
+                                color = OnSurfaceSecondary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
 
                 // Extra controls
                 var showPlaylistDialog by remember { mutableStateOf(false) }
-                Row(modifier = Modifier.fillMaxWidth().onPlaced { border1Y = 0f }, horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { if (isShuffle) viewModel.disableShuffle() else viewModel.enableShuffle() }) { Icon(painterResource(R.drawable.shuffle), contentDescription = "Shuffle", tint = if (isShuffle) Blue60 else OnSurfaceSecondary, modifier = Modifier.size(22.dp)) }
-                    IconButton(onClick = { showPlaylistDialog = true }) { Icon(painterResource(R.drawable.add_link), contentDescription = "Add to playlist", tint = OnSurfaceSecondary, modifier = Modifier.size(22.dp)) }
-                    IconButton(onClick = { if (isRepeat) viewModel.disableRepeat() else viewModel.enableRepeat() }) { Icon(painterResource(R.drawable.repeat_one), contentDescription = "Repeat", tint = if (isRepeat) Blue60 else OnSurfaceSecondary, modifier = Modifier.size(22.dp)) }
-                    IconButton(onClick = { viewModel.changeTrackFavoriteState(viewModel.currentTrack) }) { Icon(painterResource(if (isFavorite) R.drawable.favorite_filled else R.drawable.favorite_outline), contentDescription = "Favorite", tint = if (isFavorite) Blue60 else OnSurfaceSecondary, modifier = Modifier.size(22.dp)) }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onPlaced { border1Y = 0f },
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { if (isShuffle) viewModel.disableShuffle() else viewModel.enableShuffle() }) {
+                        Icon(
+                            painterResource(R.drawable.shuffle),
+                            contentDescription = "Shuffle",
+                            tint = if (isShuffle) Blue60 else OnSurfaceSecondary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    IconButton(onClick = {
+                        showPlaylistDialog = true
+                    }) {
+                        Icon(
+                            painterResource(R.drawable.add_link),
+                            contentDescription = "Add to playlist",
+                            tint = OnSurfaceSecondary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    IconButton(onClick = { if (isRepeat) viewModel.disableRepeat() else viewModel.enableRepeat() }) {
+                        Icon(
+                            painterResource(R.drawable.repeat_one),
+                            contentDescription = "Repeat",
+                            tint = if (isRepeat) Blue60 else OnSurfaceSecondary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    IconButton(onClick = { viewModel.changeTrackFavoriteState(viewModel.currentTrack) }) {
+                        Icon(
+                            painterResource(if (isFavorite) R.drawable.favorite_filled else R.drawable.favorite_outline),
+                            contentDescription = "Favorite",
+                            tint = if (isFavorite) Blue60 else OnSurfaceSecondary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
 
                 if (showPlaylistDialog) {
-                    AddToPlaylistDialog(track = viewModel.currentTrack, allPlaylists = viewModel.allPlaylists, onDismiss = { showPlaylistDialog = false }, onToggle = { playlist, add ->
-                        val list = playlist.tracklist.toMutableList()
-                        if (add) list.add(viewModel.currentTrack) else list.removeIf { it.id == viewModel.currentTrack.id }
-                        viewModel.savePlaylist(playlist.copy(tracklist = list))
-                    })
+                    AddToPlaylistDialog(
+                        track = viewModel.currentTrack,
+                        allPlaylists = viewModel.allPlaylists,
+                        onDismiss = { showPlaylistDialog = false },
+                        onToggle = { playlist, add ->
+                            val list = playlist.tracklist.toMutableList()
+                            if (add) list.add(viewModel.currentTrack) else list.removeIf { it.id == viewModel.currentTrack.id }
+                            viewModel.savePlaylist(playlist.copy(tracklist = list))
+                        })
                 }
             }
 
             // Tabs
-            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).onPlaced { tabsY = it.positionInParent().y }, horizontalArrangement = Arrangement.SpaceEvenly) {
-                BottomTabItem(icon = R.drawable.data_table, label = "Очередь", onClick = { onMoveTo("queue") })
-                BottomTabItem(icon = R.drawable.album, label = "Альбом", onClick = { onMoveTo("album") })
-                BottomTabItem(icon = R.drawable.skip_next, label = "Исполнители", onClick = { onMoveTo("artist") })
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    .onPlaced { tabsY = it.positionInParent().y },
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                BottomTabItem(
+                    icon = R.drawable.data_table,
+                    label = "Очередь",
+                    onClick = { onMoveTo("queue") })
+                BottomTabItem(
+                    icon = R.drawable.album,
+                    label = "Альбом",
+                    onClick = {
+                        viewModel.currentAlbum = viewModel.allAlbums.find {
+                            it.fileName == viewModel.currentTrack.album
+                        } ?: AlbumDocument.createEmpty()
+                        onMoveTo("album")
+                    },
+                )
+                BottomTabItem(
+                    icon = R.drawable.creators,
+                    label = "Артист",
+                    onClick = { onMoveTo("trackCreators") })
             }
         }
     }
@@ -246,23 +469,40 @@ fun MusicPlayerScreen(
 
 @Composable
 private fun ListenStats(viewModel: MusicPlayerViewModel, listenSec: Int) {
-    val rank = viewModel.allTracks.sortedByDescending { it.listenInSec }.indexOfFirst { it.id == viewModel.currentTrack.id } + 1
+    val rank = viewModel.allTracks.sortedByDescending { it.listenInSec }
+        .indexOfFirst { it.id == viewModel.currentTrack.id } + 1
     val days = listenSec / 86400
     val hours = (listenSec % 86400) / 3600
     val minutes = (listenSec % 3600) / 60
     val seconds = listenSec % 60
-    val timeStr = buildString { if (days > 0) append("$days д "); if (hours > 0) append("$hours ч "); if (minutes > 0) append("$minutes мин "); if (seconds > 0 || isEmpty()) append("$seconds сек") }.trim()
+    val timeStr = buildString {
+        if (days > 0) append("$days д "); if (hours > 0) append("$hours ч "); if (minutes > 0) append(
+        "$minutes мин "
+    ); if (seconds > 0 || isEmpty()) append("$seconds сек")
+    }.trim()
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Очки: $listenSec", color = OnSurfaceSecondary, fontSize = 13.sp)
         Text("Время: $timeStr", color = OnSurfaceSecondary, fontSize = 13.sp)
-        Text("Место: $rank/${viewModel.allTracks.size}", color = OnSurfaceSecondary, fontSize = 13.sp)
+        Text(
+            "Место: $rank/${viewModel.allTracks.size}",
+            color = OnSurfaceSecondary,
+            fontSize = 13.sp
+        )
     }
 }
 
 @Composable
 private fun BottomTabItem(icon: Int, label: String, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(onClick = onClick)) {
-        Icon(painterResource(icon), contentDescription = label, tint = OnSurfaceSecondary, modifier = Modifier.size(26.dp))
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
+        Icon(
+            painterResource(icon),
+            contentDescription = label,
+            tint = OnSurfaceSecondary,
+            modifier = Modifier.size(26.dp)
+        )
         Spacer(Modifier.height(4.dp))
         Text(text = label, color = OnSurfaceSecondary, fontSize = 12.sp)
     }
@@ -270,10 +510,25 @@ private fun BottomTabItem(icon: Int, label: String, onClick: () -> Unit) {
 
 @Composable
 private fun CategoryItem(icon: Int, label: String, onClick: () -> Unit = {}) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 8.dp).clickable(onClick = onClick)) {
-        Icon(painterResource(icon), contentDescription = label, tint = OnSurfaceSecondary, modifier = Modifier.size(22.dp))
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .padding(horizontal = 8.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Icon(
+            painterResource(icon),
+            contentDescription = label,
+            tint = OnSurfaceSecondary,
+            modifier = Modifier.size(22.dp)
+        )
         Spacer(Modifier.height(4.dp))
-        Text(text = label, color = OnSurfaceSecondary, fontSize = 10.sp, textAlign = TextAlign.Center)
+        Text(
+            text = label,
+            color = OnSurfaceSecondary,
+            fontSize = 10.sp,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -285,60 +540,194 @@ private fun rememberCoverUri(viewModel: MusicPlayerViewModel): String {
 
 // --- Add to playlist dialog ---
 @Composable
-fun AddToPlaylistDialog(track: TrackDocument, allPlaylists: List<PlaylistDocument>, onDismiss: () -> Unit, onToggle: (playlist: PlaylistDocument, add: Boolean) -> Unit) {
-    val checkedStates = remember { allPlaylists.associate { it.id to mutableStateOf(it.tracklist.any { t -> t.id == track.id }) } }
-    AlertDialog(onDismissRequest = onDismiss, containerColor = SurfaceCard, title = { Text("Добавить в плейлист", color = OnSurfacePrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold) }, text = {
-        LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
-            items(allPlaylists) { playlist ->
-                val playlistName = playlist.aliases.getOrElse(0) { "Unknown" }
-                val isChecked = checkedStates[playlist.id]?.value ?: false
-                Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { checkedStates[playlist.id]?.value = !isChecked; onToggle(playlist, !isChecked) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = isChecked, onCheckedChange = { checked -> checkedStates[playlist.id]?.value = checked; onToggle(playlist, checked) }, colors = CheckboxDefaults.colors(checkedColor = Blue60, uncheckedColor = OnSurfaceSecondary))
-                    Text(playlistName, color = OnSurfacePrimary, fontSize = 15.sp, modifier = Modifier.padding(start = 8.dp))
+fun AddToPlaylistDialog(
+    track: TrackDocument,
+    allPlaylists: List<PlaylistDocument>,
+    onDismiss: () -> Unit,
+    onToggle: (playlist: PlaylistDocument, add: Boolean) -> Unit
+) {
+    val checkedStates =
+        remember { allPlaylists.associate { it.id to mutableStateOf(it.tracklist.any { t -> t.id == track.id }) } }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = SurfaceCard,
+        title = {
+            Text(
+                "Добавить в плейлист",
+                color = OnSurfacePrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
+                items(allPlaylists) { playlist ->
+                    val playlistName = playlist.aliases.getOrElse(0) { "Unknown" }
+                    val isChecked = checkedStates[playlist.id]?.value ?: false
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                checkedStates[playlist.id]?.value = !isChecked; onToggle(
+                                playlist,
+                                !isChecked
+                            )
+                            }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = isChecked,
+                            onCheckedChange = { checked ->
+                                checkedStates[playlist.id]?.value = checked; onToggle(
+                                playlist,
+                                checked
+                            )
+                            },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Blue60,
+                                uncheckedColor = OnSurfaceSecondary
+                            )
+                        )
+                        Text(
+                            playlistName,
+                            color = OnSurfacePrimary,
+                            fontSize = 15.sp,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
                 }
             }
-        }
-    }, confirmButton = { IconButton(onClick = { onDismiss() }) { Text("Закрыть", color = Blue60, fontSize = 14.sp) } })
+        },
+        confirmButton = {
+            IconButton(onClick = { onDismiss() }) {
+                Text(
+                    "Закрыть",
+                    color = Blue60,
+                    fontSize = 14.sp
+                )
+            }
+        })
 }
 
 // --- Queue screen ---
 @Composable
-fun QueueTracksScreen(modifier: Modifier = Modifier, viewModel: MusicPlayerViewModel, onBack: () -> Unit = {}, onTrackSelected: (TrackDocument) -> Unit = {}) {
+fun QueueTracksScreen(
+    modifier: Modifier = Modifier,
+    viewModel: MusicPlayerViewModel,
+    onBack: () -> Unit = {},
+    onTrackSelected: (TrackDocument) -> Unit = {}
+) {
     val listState = rememberLazyListState()
     val queue = viewModel.currentQueue
-    Column(modifier = modifier.fillMaxSize().systemBarsPadding().background(SurfaceDark)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = OnSurfacePrimary, modifier = Modifier.size(32.dp)) }
-            Text("Очередь (${queue.size})", color = OnSurfacePrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .systemBarsPadding()
+            .background(SurfaceDark)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { onBack() }) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = OnSurfacePrimary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            Text(
+                "Очередь (${queue.size})",
+                color = OnSurfacePrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
         Box(modifier = Modifier.weight(1f)) {
-            LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) { items(items = queue, key = { it.id }) { track -> TrackListItem(track = track, isActive = track == viewModel.currentTrack, coverUri = viewModel.getCoverUri(coverString = track.cover), onClick = { onTrackSelected(track) }) } }
+            LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) {
+                items(
+                    items = queue,
+                    key = { it.id }) { track ->
+                    TrackListItem(
+                        track = track,
+                        isActive = track.id == viewModel.currentTrack.id,
+                        coverUri = viewModel.getCoverUri(coverString = track.cover),
+                        onClick = { onTrackSelected(track) })
+                }
+            }
             BottomScrollControls(listState, viewModel, queue)
         }
         BottomPlayerMini(viewModel)
     }
 }
 
-// --- Creator tracks screen ---
 @Composable
-fun CreatorTracksScreen(modifier: Modifier = Modifier, viewModel: MusicPlayerViewModel, onBack: () -> Unit = {}, onTrackSelected: (TrackDocument) -> Unit = {}) {
+fun TrackCreatorsScreen(
+    modifier: Modifier = Modifier,
+    viewModel: MusicPlayerViewModel,
+    onBack: () -> Unit = {},
+    onCreatorSelected: (CreatorDocument) -> Unit = {},
+) {
     val currentCreators = viewModel.currentTrack.creators
-    Column(modifier = modifier.fillMaxSize().systemBarsPadding().background(SurfaceDark)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = OnSurfacePrimary, modifier = Modifier.size(32.dp)) }
-            Text("Исполнители", color = OnSurfacePrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .systemBarsPadding()
+            .background(SurfaceDark)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { onBack() }) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = OnSurfacePrimary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            Text(
+                "Артисты",
+                color = OnSurfacePrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             items(items = currentCreators, key = { it.id }) { creator ->
                 val creatorName = creator.aliases.getOrElse(0) { CreatorDocument.UNKNOWN }
-                val trackCount = viewModel.allTracks.count { track -> track.creators.any { it.id == creator.id } }
-                Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
-                    val tracks = viewModel.allTracks.filter { track -> track.creators.any { it.id == creator.id } }
-                    if (tracks.isNotEmpty()) { viewModel.currentQueue = tracks.toMutableList(); viewModel.currentQueueIndex = 0; onTrackSelected(tracks.first()) }
-                }.padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    AlbumCover(modifier = Modifier.size(48.dp), label = creatorName, shape = RoundedCornerShape(8.dp))
+                val trackCount =
+                    viewModel.allTracks.count { track -> track.creators.any { it.id == creator.id } }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onCreatorSelected(creator) }
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AlbumCover(
+                        modifier = Modifier.size(48.dp),
+                        label = creatorName,
+                        shape = RoundedCornerShape(8.dp)
+                    )
                     Spacer(Modifier.size(12.dp))
-                    Column(modifier = Modifier.weight(1f)) { Text(creatorName, color = OnSurfacePrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold); Text("$trackCount треков", color = OnSurfaceSecondary, fontSize = 13.sp) }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            creatorName,
+                            color = OnSurfacePrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        ); Text("$trackCount треков", color = OnSurfaceSecondary, fontSize = 13.sp)
+                    }
                 }
             }
         }
@@ -348,15 +737,55 @@ fun CreatorTracksScreen(modifier: Modifier = Modifier, viewModel: MusicPlayerVie
 
 // --- All tracks screen ---
 @Composable
-fun AllTracksScreen(modifier: Modifier = Modifier, viewModel: MusicPlayerViewModel, onBack: () -> Unit = {}, onTrackSelected: (TrackDocument) -> Unit = {}) {
+fun AllTracksScreen(
+    modifier: Modifier = Modifier,
+    viewModel: MusicPlayerViewModel,
+    onBack: () -> Unit = {},
+    onTrackSelected: (TrackDocument) -> Unit = {}
+) {
     val listState = rememberLazyListState()
-    Column(modifier = modifier.fillMaxSize().systemBarsPadding().background(SurfaceDark)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = OnSurfacePrimary, modifier = Modifier.size(32.dp)) }
-            Text("Треки (${viewModel.allTracks.size})", color = OnSurfacePrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .systemBarsPadding()
+            .background(SurfaceDark)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { onBack() }) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = OnSurfacePrimary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            Text(
+                "Треки (${viewModel.allTracks.size})",
+                color = OnSurfacePrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
         Box(modifier = Modifier.weight(1f)) {
-            LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) { items(items = viewModel.allTracks, key = { it.id }) { track -> TrackListItem(track = track, isActive = track == viewModel.currentTrack, coverUri = viewModel.getCoverUri(coverString = track.cover), onClick = { onTrackSelected(track) }) } }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                state = listState
+            ) {
+                items(
+                    items = viewModel.allTracks,
+                    key = { it.id }) { track ->
+                    TrackListItem(
+                        track = track,
+                        isActive = track.id == viewModel.currentTrack.id,
+                        coverUri = viewModel.getCoverUri(coverString = track.cover),
+                        onClick = { onTrackSelected(track) })
+                }
+            }
             BottomScrollControls(listState, viewModel, viewModel.allTracks)
         }
         BottomPlayerMini(viewModel)
@@ -365,26 +794,132 @@ fun AllTracksScreen(modifier: Modifier = Modifier, viewModel: MusicPlayerViewMod
 
 // --- All creators screen ---
 @Composable
-fun AllCreatorsScreen(modifier: Modifier = Modifier, viewModel: MusicPlayerViewModel, onBack: () -> Unit = {}, onTrackSelected: (TrackDocument) -> Unit = {}) {
+fun AllCreatorsScreen(
+    modifier: Modifier = Modifier,
+    viewModel: MusicPlayerViewModel,
+    onBack: () -> Unit = {},
+    onCreatorSelected: (CreatorDocument) -> Unit = {},
+    onTrackSelected: (TrackDocument) -> Unit = {}
+) {
     val listState = rememberLazyListState()
-    Column(modifier = modifier.fillMaxSize().systemBarsPadding().background(SurfaceDark)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = OnSurfacePrimary, modifier = Modifier.size(32.dp)) }
-            Text("Исполнители (${viewModel.allCreators.size})", color = OnSurfacePrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .systemBarsPadding()
+            .background(SurfaceDark)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { onBack() }) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = OnSurfacePrimary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            Text(
+                "Артисты (${viewModel.allCreators.size})",
+                color = OnSurfacePrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
         LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) {
             items(items = viewModel.allCreators, key = { it.id }) { creator ->
                 val creatorName = creator.aliases.getOrElse(0) { CreatorDocument.UNKNOWN }
-                val trackCount = viewModel.allTracks.count { track -> track.creators.any { it.id == creator.id } }
-                Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
-                    val tracks = viewModel.allTracks.filter { track -> track.creators.any { it.id == creator.id } }
-                    if (tracks.isNotEmpty()) { viewModel.currentQueue = tracks.toMutableList(); viewModel.currentQueueIndex = 0; onTrackSelected(tracks.first()) }
-                }.padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    AlbumCover(modifier = Modifier.size(48.dp), label = creatorName, shape = RoundedCornerShape(8.dp))
+                val trackCount =
+                    viewModel.allTracks.count { track -> track.creators.any { it.id == creator.id } }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onCreatorSelected(creator) }
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AlbumCover(
+                        modifier = Modifier.size(48.dp),
+                        label = creatorName,
+                        shape = RoundedCornerShape(8.dp)
+                    )
                     Spacer(Modifier.size(12.dp))
-                    Column(modifier = Modifier.weight(1f)) { Text(creatorName, color = OnSurfacePrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold); Text("$trackCount треков", color = OnSurfaceSecondary, fontSize = 13.sp) }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            creatorName,
+                            color = OnSurfacePrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        ); Text("$trackCount треков", color = OnSurfaceSecondary, fontSize = 13.sp)
+                    }
                 }
             }
+        }
+        BottomPlayerMini(viewModel)
+    }
+}
+
+// --- Creator tracks screen ---
+@Composable
+fun CreatorTracksScreen(
+    modifier: Modifier = Modifier,
+    viewModel: MusicPlayerViewModel,
+    onBack: () -> Unit = {},
+    onTrackSelected: (TrackDocument) -> Unit = {}
+) {
+    val creator = viewModel.currentCreator
+    val creatorName = creator.aliases.getOrElse(0) { CreatorDocument.UNKNOWN }
+    val tracks = viewModel.getCreatorTracks(creator)
+    val listState = rememberLazyListState()
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .systemBarsPadding()
+            .background(SurfaceDark)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { onBack() }) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = OnSurfacePrimary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            Text(
+                creatorName,
+                color = OnSurfacePrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Box(modifier = Modifier.weight(1f)) {
+            LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) {
+                items(items = tracks, key = { it.id }) { track ->
+                    TrackListItem(
+                        track = track,
+                        isActive = track.id == viewModel.currentTrack.id,
+                        coverUri = viewModel.getCoverUri(coverString = track.cover),
+                        onClick = {
+                            viewModel.currentQueue = tracks.toMutableList()
+                            viewModel.currentQueueIndex = tracks.indexOf(track)
+                            viewModel.setMediaSourceWithService(track)
+                            onTrackSelected(track)
+                        }
+                    )
+                }
+            }
+            BottomScrollControls(listState, viewModel, tracks)
         }
         BottomPlayerMini(viewModel)
     }
@@ -395,26 +930,112 @@ fun AllCreatorsScreen(modifier: Modifier = Modifier, viewModel: MusicPlayerViewM
 fun BottomPlayerMini(viewModel: MusicPlayerViewModel) {
     val isPlaying = viewModel.isPlaying
     val name = viewModel.currentTrack.aliases.getOrElse(0) { "" }
-    val artists = viewModel.currentTrack.creators.joinToString(", ") { it.aliases.getOrElse(0) { "" } }
+    val artists =
+        viewModel.currentTrack.creators.joinToString(", ") { it.aliases.getOrElse(0) { "" } }
     val coverUri = viewModel.getCoverUri(coverString = viewModel.currentTrack.cover)
-    Row(modifier = Modifier.fillMaxWidth().height(64.dp).background(SurfaceCard).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .background(SurfaceCard)
+            .padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically
+    ) {
         AlbumCover(modifier = Modifier.size(48.dp), label = name, coverUri = coverUri)
         Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) { Text(text = name.ifEmpty { "No track" }, color = OnSurfacePrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1); Text(text = artists.ifEmpty { "Unknown" }, color = OnSurfaceSecondary, fontSize = 12.sp, maxLines = 1) }
-        IconButton(onClick = { viewModel.previousTrack() }) { Icon(painterResource(R.drawable.skip_previous), contentDescription = "Previous", tint = OnSurfacePrimary, modifier = Modifier.size(32.dp)) }
-        IconButton(onClick = { if (isPlaying) viewModel.pause() else viewModel.play() }) { Icon(painterResource(if (isPlaying) R.drawable.pause else R.drawable.play_arrow), contentDescription = if (isPlaying) "Pause" else "Play", tint = OnSurfacePrimary, modifier = Modifier.size(40.dp)) }
-        IconButton(onClick = { viewModel.nextTrack() }) { Icon(painterResource(R.drawable.skip_next), contentDescription = "Next", tint = OnSurfacePrimary, modifier = Modifier.size(32.dp)) }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = name.ifEmpty { "No track" },
+                color = OnSurfacePrimary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            ); Text(
+            text = artists.ifEmpty { "Unknown" },
+            color = OnSurfaceSecondary,
+            fontSize = 12.sp,
+            maxLines = 1
+        )
+        }
+        IconButton(onClick = { viewModel.previousTrack() }) {
+            Icon(
+                painterResource(R.drawable.skip_previous),
+                contentDescription = "Previous",
+                tint = OnSurfacePrimary,
+                modifier = Modifier.size(32.dp)
+            )
+        }
+        IconButton(onClick = { if (isPlaying) viewModel.pause() else viewModel.play() }) {
+            Icon(
+                painterResource(if (isPlaying) R.drawable.pause else R.drawable.play_arrow),
+                contentDescription = if (isPlaying) "Pause" else "Play",
+                tint = OnSurfacePrimary,
+                modifier = Modifier.size(40.dp)
+            )
+        }
+        IconButton(onClick = { viewModel.nextTrack() }) {
+            Icon(
+                painterResource(R.drawable.skip_next),
+                contentDescription = "Next",
+                tint = OnSurfacePrimary,
+                modifier = Modifier.size(32.dp)
+            )
+        }
     }
 }
 
 @Composable
-fun BottomScrollControls(listState: androidx.compose.foundation.lazy.LazyListState, viewModel: MusicPlayerViewModel, trackList: List<TrackDocument>) {
+fun BottomScrollControls(
+    listState: androidx.compose.foundation.lazy.LazyListState,
+    viewModel: MusicPlayerViewModel,
+    trackList: List<TrackDocument>
+) {
     val coroutineScope = rememberCoroutineScope()
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
         Column(modifier = Modifier.padding(bottom = 75.dp, end = 5.dp)) {
-            IconButton(onClick = { coroutineScope.launch { listState.scrollToItem(0) } }, modifier = Modifier.padding(bottom = 10.dp).background(color = SurfaceCard, shape = RoundedCornerShape(50))) { Icon(painterResource(R.drawable.double_arrow_up), contentDescription = "Scroll to top", tint = OnSurfaceSecondary, modifier = Modifier.size(32.dp)) }
-            IconButton(onClick = { val trackIndex = trackList.indexOfFirst { it == viewModel.currentTrack }; if (trackIndex >= 0) coroutineScope.launch { listState.scrollToItem(trackIndex) } }, modifier = Modifier.padding(bottom = 10.dp).background(color = SurfaceCard, shape = RoundedCornerShape(50))) { Icon(painterResource(R.drawable.arrows_input), contentDescription = "Scroll to current", tint = OnSurfaceSecondary, modifier = Modifier.size(32.dp)) }
-            IconButton(onClick = { coroutineScope.launch { listState.scrollToItem(trackList.lastIndex) } }, modifier = Modifier.background(color = SurfaceCard, shape = RoundedCornerShape(50))) { Icon(painterResource(R.drawable.double_arrow_down), contentDescription = "Scroll to bottom", tint = OnSurfaceSecondary, modifier = Modifier.size(32.dp)) }
+            IconButton(
+                onClick = { coroutineScope.launch { listState.scrollToItem(0) } },
+                modifier = Modifier
+                    .padding(bottom = 10.dp)
+                    .background(color = SurfaceCard, shape = RoundedCornerShape(50))
+            ) {
+                Icon(
+                    painterResource(R.drawable.double_arrow_up),
+                    contentDescription = "Scroll to top",
+                    tint = OnSurfaceSecondary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            IconButton(
+                onClick = {
+                    val trackIndex =
+                        trackList.indexOfFirst { it.id == viewModel.currentTrack.id }; if (trackIndex >= 0) coroutineScope.launch {
+                    listState.scrollToItem(
+                        trackIndex
+                    )
+                }
+                },
+                modifier = Modifier
+                    .padding(bottom = 10.dp)
+                    .background(color = SurfaceCard, shape = RoundedCornerShape(50))
+            ) {
+                Icon(
+                    painterResource(R.drawable.arrows_input),
+                    contentDescription = "Scroll to current",
+                    tint = OnSurfaceSecondary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            IconButton(
+                onClick = { coroutineScope.launch { listState.scrollToItem(trackList.lastIndex) } },
+                modifier = Modifier.background(color = SurfaceCard, shape = RoundedCornerShape(50))
+            ) {
+                Icon(
+                    painterResource(R.drawable.double_arrow_down),
+                    contentDescription = "Scroll to bottom",
+                    tint = OnSurfaceSecondary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
         }
     }
 }
@@ -425,26 +1046,38 @@ fun BottomScrollControls(listState: androidx.compose.foundation.lazy.LazyListSta
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun MusicPlayerScreenPreview() {
-    MusicPlayerScreen(modifier = Modifier.fillMaxSize(), viewModel = MusicPlayerViewModel(LocalContext.current))
+    MusicPlayerScreen(
+        modifier = Modifier.fillMaxSize(),
+        viewModel = MusicPlayerViewModel(LocalContext.current)
+    )
 }
 
 @SuppressLint("ViewModelConstructorInComposable")
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun QueueTracksScreenPreview() {
-    QueueTracksScreen(modifier = Modifier.fillMaxSize(), viewModel = MusicPlayerViewModel(LocalContext.current))
+    QueueTracksScreen(
+        modifier = Modifier.fillMaxSize(),
+        viewModel = MusicPlayerViewModel(LocalContext.current)
+    )
 }
 
 @SuppressLint("ViewModelConstructorInComposable")
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun CreatorTracksScreenPreview() {
-    CreatorTracksScreen(modifier = Modifier.fillMaxSize(), viewModel = MusicPlayerViewModel(LocalContext.current))
+fun TrackCreatorsScreenPreview() {
+    TrackCreatorsScreen(
+        modifier = Modifier.fillMaxSize(),
+        viewModel = MusicPlayerViewModel(LocalContext.current)
+    )
 }
 
 @SuppressLint("ViewModelConstructorInComposable")
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun AllTracksScreenPreview() {
-    AllTracksScreen(modifier = Modifier.fillMaxSize(), viewModel = MusicPlayerViewModel(LocalContext.current))
+    AllTracksScreen(
+        modifier = Modifier.fillMaxSize(),
+        viewModel = MusicPlayerViewModel(LocalContext.current)
+    )
 }

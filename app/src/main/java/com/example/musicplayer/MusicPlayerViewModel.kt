@@ -74,9 +74,12 @@ class MusicPlayerViewModel(
     var currentTrack by mutableStateOf(TrackDocument.createEmpty())
         private set
 
-    var currentListenInSec by androidx.compose.runtime.mutableIntStateOf(0)
+    var currentListenInSec by mutableIntStateOf(0)
 
     var currentAlbum by mutableStateOf(AlbumDocument.createEmpty())
+        internal set
+
+    var currentCreator by mutableStateOf(CreatorDocument.createEmpty())
         internal set
 
     var currentPlaylist by mutableStateOf(PlaylistDocument.createEmpty())
@@ -213,13 +216,13 @@ class MusicPlayerViewModel(
             allTracks.clear()
             allAlbums.clear()
             allPlaylists.clear()
-            favorites = com.example.musicplayer.data.PlaylistDocument.createEmpty()
+            favorites = PlaylistDocument.createEmpty()
             currentQueue.clear()
             currentQueueIndex = -1
             randomQueue.clear()
             randomQueueIndex = -1
-            currentTrack = com.example.musicplayer.data.TrackDocument.createEmpty()
-            musicState = com.example.musicplayer.data.TrackListState()
+            currentTrack = TrackDocument.createEmpty()
+            musicState = TrackListState()
             coverUris.clear()
             MusicPlayerService.coverUriMap.clear()
         }
@@ -325,7 +328,12 @@ class MusicPlayerViewModel(
             currentListenInSec = track.listenInSec
             isFavorite = favorites.tracklist.find { it == track } != null
             if (track.sourceUri.isEmpty()) {
-                Log.w(TAG, "Track ${track.id} has no source URI, cannot play")
+                Log.w(TAG, "Track ${track.fileName} has no source URI, cannot play")
+                Toast.makeText(
+                    context,
+                    "Track ${track.fileName} has no source URI, cannot play",
+                    Toast.LENGTH_LONG,
+                ).show()
                 return
             }
             currentQueueIndex = currentQueue.indexOf(currentTrack)
@@ -484,13 +492,20 @@ class MusicPlayerViewModel(
 
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            val musicList = if (query.isBlank()) {
-                allTracks.sortedByDescending { it.listenInSec }.take(10)
+            if (query.isBlank()) {
+                val topTracks = allTracks.sortedByDescending { it.listenInSec }.take(10)
+                musicState = musicState.copy(trackList = topTracks, albumList = emptyList(), creatorList = emptyList())
             } else {
-                repository.searchTracks(query)
+                val tracks = repository.searchTracks(query)
+                val albums = repository.searchAlbums(query)
+                val creators = repository.searchCreators(query)
+                musicState = musicState.copy(trackList = tracks, albumList = albums, creatorList = creators)
             }
-            musicState = musicState.copy(trackList = musicList)
         }
+    }
+
+    fun getCreatorTracks(creator: CreatorDocument): List<TrackDocument> {
+        return allTracks.filter { track -> track.creators.any { it.id == creator.id } }
     }
 
     fun addToFavorites(track: TrackDocument) {

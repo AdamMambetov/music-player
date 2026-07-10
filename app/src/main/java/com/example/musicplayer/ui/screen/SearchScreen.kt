@@ -1,6 +1,7 @@
 package com.example.musicplayer.ui.screen
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +44,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.musicplayer.MusicPlayerViewModel
 import com.example.musicplayer.R
+import com.example.musicplayer.data.AlbumDocument
+import com.example.musicplayer.data.CreatorDocument
 import com.example.musicplayer.data.TrackDocument
 import com.example.musicplayer.ui.components.AlbumCover
 import com.example.musicplayer.ui.components.TrackListItem
@@ -58,11 +61,13 @@ import com.example.musicplayer.ui.theme.SurfaceDark
 fun SearchScreen(
     modifier: Modifier = Modifier,
     viewModel: MusicPlayerViewModel,
-    onTrackSelected: (TrackDocument) -> Unit,
+    onTrackSelected: (TrackDocument) -> Unit = {},
+    onCreatorSelected: (CreatorDocument) -> Unit = {},
+    onAlbumSelected: (AlbumDocument) -> Unit = {},
     onBack: () -> Unit = {},
 ) {
     val musicState = viewModel.musicState
-    val albums = viewModel.allAlbums
+    val isSearching = musicState.searchQuery.isNotBlank()
 
     LaunchedEffect(key1 = Unit) { viewModel.onSearchQueryChange("") }
 
@@ -75,12 +80,17 @@ fun SearchScreen(
                     OutlinedTextField(
                         value = musicState.searchQuery,
                         onValueChange = viewModel::onSearchQueryChange,
-                        placeholder = { Text("Поиск песен, альбомов, артистов...") },
+                        placeholder = { Text("Треки, альбомы, артисты...") },
                         singleLine = true,
                         trailingIcon = {
                             if (musicState.searchQuery.isNotEmpty()) {
                                 IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Clear", tint = OnSurfaceSecondary, modifier = Modifier.size(20.dp))
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Clear",
+                                        tint = OnSurfaceSecondary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
                                 }
                             }
                         },
@@ -96,34 +106,87 @@ fun SearchScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                 },
-                navigationIcon = { IconButton(onClick = { onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = OnSurfacePrimary) } },
-                actions = { IconButton(onClick = {}) { Icon(painterResource(R.drawable.search), contentDescription = "Search", tint = OnSurfacePrimary) } },
+                navigationIcon = {
+                    IconButton(onClick = { onBack() }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = OnSurfacePrimary
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = {}) {
+                        Icon(
+                            painterResource(R.drawable.search),
+                            contentDescription = "Search",
+                            tint = OnSurfacePrimary
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceDark)
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).padding(horizontal = 12.dp)) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
-                items(albums) { album ->
+        Column(modifier = Modifier
+            .padding(padding)
+            .padding(horizontal = 12.dp)) {
+            val displayAlbums = if (isSearching) musicState.albumList else viewModel.allAlbums
+            val displayCreators =
+                if (isSearching) musicState.creatorList else viewModel.allCreators.take(10)
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                items(displayAlbums) { album ->
                     val albumName = album.aliases.getOrElse(0) { "Unknown" }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        AlbumCover(modifier = Modifier.size(90.dp).clip(RoundedCornerShape(12.dp)), label = albumName, shape = RoundedCornerShape(12.dp))
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.clickable { onAlbumSelected(album) }
+                    ) {
+                        AlbumCover(
+                            modifier = Modifier
+                                .size(90.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            label = albumName,
+                            shape = RoundedCornerShape(12.dp)
+                        )
                         Spacer(Modifier.height(4.dp))
                         Text(albumName, color = OnSurfacePrimary, fontSize = 11.sp, maxLines = 1)
                     }
                 }
             }
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
-                items(viewModel.allCreators.take(10)) { creator ->
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                items(displayCreators) { creator ->
                     val name = creator.aliases.getOrElse(0) { "Unknown" }
-                    AssistChip(onClick = { viewModel.onSearchQueryChange(name) }, label = { Text(name, fontSize = 12.sp) }, colors = AssistChipDefaults.assistChipColors(containerColor = SurfaceCard))
+                    AssistChip(
+                        onClick = { onCreatorSelected(creator) },
+                        label = { Text(name, fontSize = 12.sp) },
+                        colors = AssistChipDefaults.assistChipColors(containerColor = SurfaceCard)
+                    )
                 }
             }
             val searchListState = rememberLazyListState()
             Box(modifier = Modifier.weight(1f)) {
-                LazyColumn(state = searchListState, verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+                LazyColumn(
+                    state = searchListState,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
                     items(musicState.trackList) { track ->
-                        TrackListItem(track = track, isActive = track == viewModel.currentTrack, coverUri = viewModel.getCoverUri(coverString = track.cover), onClick = { viewModel.setQueueToDefault(); viewModel.setMediaSourceWithService(track); onTrackSelected(track) })
+                        TrackListItem(
+                            track = track,
+                            isActive = track.id == viewModel.currentTrack.id,
+                            coverUri = viewModel.getCoverUri(coverString = track.cover),
+                            onClick = {
+                                viewModel.setQueueToDefault(); viewModel.setMediaSourceWithService(
+                                track
+                            ); onTrackSelected(track)
+                            })
                     }
                 }
                 BottomScrollControls(searchListState, viewModel, musicState.trackList)
@@ -136,5 +199,8 @@ fun SearchScreen(
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun SearchScreenPreview() {
-    SearchScreen(modifier = Modifier.fillMaxSize(), viewModel = MusicPlayerViewModel(LocalContext.current), onTrackSelected = {})
+    SearchScreen(
+        modifier = Modifier.fillMaxSize(),
+        viewModel = MusicPlayerViewModel(LocalContext.current)
+    )
 }
