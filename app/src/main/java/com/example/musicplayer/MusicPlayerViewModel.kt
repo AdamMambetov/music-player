@@ -207,6 +207,23 @@ class MusicPlayerViewModel(
     fun scanAll(clearCache: Boolean) {
         Log.d(TAG, "Rescan start")
         scanJob?.cancel()
+
+        if (clearCache) {
+            allCreators.clear()
+            allTracks.clear()
+            allAlbums.clear()
+            allPlaylists.clear()
+            favorites = com.example.musicplayer.data.PlaylistDocument.createEmpty()
+            currentQueue.clear()
+            currentQueueIndex = -1
+            randomQueue.clear()
+            randomQueueIndex = -1
+            currentTrack = com.example.musicplayer.data.TrackDocument.createEmpty()
+            musicState = com.example.musicplayer.data.TrackListState()
+            coverUris.clear()
+            MusicPlayerService.coverUriMap.clear()
+        }
+
         scanJob = viewModelScope.launch {
             isScan = true
             val result = repository.scanAll(clearCache)
