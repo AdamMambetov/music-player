@@ -1,6 +1,13 @@
 package com.example.musicplayer.ui.screen
 
 import android.annotation.SuppressLint
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -47,7 +54,6 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
@@ -205,7 +211,7 @@ fun MusicPlayerScreen(
                                 ),
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(20.dp)
+                                    .height(1.dp)
                                     .padding(horizontal = 4.dp)
                             )
                             Text(
@@ -224,8 +230,8 @@ fun MusicPlayerScreen(
                                 .padding(top = 4.dp)
                                 .onPlaced {
                                     border3Y =
-                                        it.positionInParent().y + border2Y + with(density) { 10.dp.toPx() }; border3H =
-                                    it.size.height.toFloat()
+                                        it.positionInParent().y + border2Y + with(density) { 10.dp.toPx() }
+                                    border3H = it.size.height.toFloat()
                                 }) {
                             Column(
                                 modifier = Modifier
@@ -312,11 +318,7 @@ fun MusicPlayerScreen(
 
                         Row(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .onPlaced {
-                                    border3H =
-                                        it.size.height.toFloat() + with(density) { 24.dp.toPx() }
-                                },
+                                .fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -357,69 +359,103 @@ fun MusicPlayerScreen(
                     }
                 }
 
-                // Listen adjust
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    listOf(-10, -1, 0, 1, 10).forEach { multi ->
-                        val label = when (multi) {
-                            -10 -> "-10"; -1 -> "-1"; 0 -> "0"; 1 -> "+1"; else -> "+10"
-                        }
-                        IconButton(onClick = { viewModel.adjustListenInSec(multi) }) {
-                            Text(
-                                label,
-                                color = OnSurfaceSecondary,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                // Extra controls
+                var editTime by remember { mutableStateOf(false) }
                 var showPlaylistDialog by remember { mutableStateOf(false) }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onPlaced { border1Y = 0f },
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = { if (isShuffle) viewModel.disableShuffle() else viewModel.enableShuffle() }) {
-                        Icon(
-                            painterResource(R.drawable.shuffle),
-                            contentDescription = "Shuffle",
-                            tint = if (isShuffle) Blue60 else OnSurfaceSecondary,
-                            modifier = Modifier.size(22.dp)
-                        )
+
+                AnimatedContent(
+                    targetState = editTime,
+                    modifier = Modifier.onPlaced { border1Y = 0f },
+                    transitionSpec = {
+                        if (targetState) {
+                            (slideInHorizontally(tween(300)) { -it } + fadeIn(tween(300)))
+                                .togetherWith(slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)))
+                        } else {
+                            (slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)))
+                                .togetherWith(slideOutHorizontally(tween(300)) { -it } + fadeOut(tween(300)))
+                        }
                     }
-                    IconButton(onClick = {
-                        showPlaylistDialog = true
-                    }) {
-                        Icon(
-                            painterResource(R.drawable.add_link),
-                            contentDescription = "Add to playlist",
-                            tint = OnSurfaceSecondary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    IconButton(onClick = { if (isRepeat) viewModel.disableRepeat() else viewModel.enableRepeat() }) {
-                        Icon(
-                            painterResource(R.drawable.repeat_one),
-                            contentDescription = "Repeat",
-                            tint = if (isRepeat) Blue60 else OnSurfaceSecondary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    IconButton(onClick = { viewModel.changeTrackFavoriteState(viewModel.currentTrack) }) {
-                        Icon(
-                            painterResource(if (isFavorite) R.drawable.favorite_filled else R.drawable.favorite_outline),
-                            contentDescription = "Favorite",
-                            tint = if (isFavorite) Blue60 else OnSurfaceSecondary,
-                            modifier = Modifier.size(22.dp)
-                        )
+                ) { isEdit ->
+                    if (isEdit) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = { editTime = false }) {
+                                Icon(
+                                    painterResource(R.drawable.more_time),
+                                    contentDescription = "Back",
+                                    tint = Blue60,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                listOf(-10, -1, 0, 1, 10).forEach { multi ->
+                                    val label = when (multi) {
+                                        -10 -> "-10"; -1 -> "-1"; 0 -> "0"; 1 -> "+1"; else -> "+10"
+                                    }
+                                    IconButton(onClick = { viewModel.adjustListenInSec(multi) }) {
+                                        Text(
+                                            label,
+                                            color = OnSurfaceSecondary,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.size(48.dp))
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = { if (isShuffle) viewModel.disableShuffle() else viewModel.enableShuffle() }) {
+                                Icon(
+                                    painterResource(R.drawable.shuffle),
+                                    contentDescription = "Shuffle",
+                                    tint = if (isShuffle) Blue60 else OnSurfaceSecondary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            IconButton(onClick = { showPlaylistDialog = true }) {
+                                Icon(
+                                    painterResource(R.drawable.add_link),
+                                    contentDescription = "Add to playlist",
+                                    tint = OnSurfaceSecondary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            IconButton(onClick = { if (isRepeat) viewModel.disableRepeat() else viewModel.enableRepeat() }) {
+                                Icon(
+                                    painterResource(R.drawable.repeat_one),
+                                    contentDescription = "Repeat",
+                                    tint = if (isRepeat) Blue60 else OnSurfaceSecondary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            IconButton(onClick = { editTime = !editTime }) {
+                                Icon(
+                                    painterResource(R.drawable.more_time),
+                                    contentDescription = "Edit Time",
+                                    tint = if (editTime) Blue60 else OnSurfaceSecondary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            IconButton(onClick = { viewModel.changeTrackFavoriteState(viewModel.currentTrack) }) {
+                                Icon(
+                                    painterResource(if (isFavorite) R.drawable.favorite_filled else R.drawable.favorite_outline),
+                                    contentDescription = "Favorite",
+                                    tint = if (isFavorite) Blue60 else OnSurfaceSecondary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
                     }
                 }
 
