@@ -1,6 +1,7 @@
 package com.example.musicplayer.ui.screen
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,8 +38,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -75,57 +78,56 @@ fun SearchScreen(
         modifier = modifier.systemBarsPadding(),
         containerColor = SurfaceDark,
         topBar = {
-            TopAppBar(
-                title = {
-                    OutlinedTextField(
-                        value = musicState.searchQuery,
-                        onValueChange = viewModel::onSearchQueryChange,
-                        placeholder = { Text("Треки, альбомы, артисты...") },
-                        singleLine = true,
-                        trailingIcon = {
-                            if (musicState.searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
-                                    Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = "Clear",
-                                        tint = OnSurfaceSecondary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Blue60,
-                            unfocusedBorderColor = DividerColor,
-                            focusedTextColor = OnSurfacePrimary,
-                            unfocusedTextColor = OnSurfacePrimary,
-                            cursorColor = Blue60,
-                            focusedPlaceholderColor = OnSurfaceSecondary,
-                            unfocusedPlaceholderColor = OnSurfaceSecondary
-                        ),
-                        modifier = Modifier.fillMaxWidth()
+            androidx.compose.foundation.layout.Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(SurfaceDark)
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { onBack() }) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = OnSurfacePrimary
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { onBack() }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = OnSurfacePrimary
-                        )
+                }
+                androidx.compose.foundation.text.BasicTextField(
+                    value = musicState.searchQuery,
+                    onValueChange = viewModel::onSearchQueryChange,
+                    singleLine = true,
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        color = OnSurfacePrimary,
+                        fontSize = 18.sp
+                    ),
+                    cursorBrush = SolidColor(Blue60),
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(SurfaceCard, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    decorationBox = { innerTextField ->
+                        Box {
+                            if (musicState.searchQuery.isEmpty()) {
+                                Text(
+                                    "Треки, артисты, альбомы...",
+                                    color = OnSurfaceSecondary,
+                                    fontSize = 18.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            innerTextField()
+                        }
                     }
-                },
-                actions = {
-                    IconButton(onClick = {}) {
-                        Icon(
-                            painterResource(R.drawable.search),
-                            contentDescription = "Search",
-                            tint = OnSurfacePrimary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceDark)
-            )
+                )
+                IconButton(onClick = {}) {
+                    Icon(
+                        painterResource(R.drawable.search),
+                        contentDescription = "Search",
+                        tint = OnSurfacePrimary
+                    )
+                }
+            }
         }
     ) { padding ->
         Column(modifier = Modifier

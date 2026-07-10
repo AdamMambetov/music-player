@@ -142,7 +142,7 @@ fun MusicPlayerScreen(
                     style = stroke
                 )
             }
-            .background(Brush.verticalGradient(listOf(SurfaceDark, Color(0xFF2A1F14), SurfaceDark)))
+            .background(SurfaceDark)
     ) {
         Column(
             modifier = Modifier

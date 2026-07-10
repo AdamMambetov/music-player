@@ -2,6 +2,7 @@ package com.example.musicplayer
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
@@ -12,6 +13,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.annotation.OptIn
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -60,6 +63,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        window.isNavigationBarContrastEnforced = false
 
         val serviceIntent = Intent(this, MusicPlayerService::class.java)
         startForegroundService(serviceIntent)
@@ -91,6 +95,7 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
 
     BackHandler(enabled = screen != "home") { screen = "home" }
 
+    Box(modifier = Modifier.fillMaxSize().background(com.example.musicplayer.ui.theme.SurfaceDark)) {
     when (screen) {
         "home" -> MusicPlayerScreen(
             modifier = Modifier.fillMaxSize(),
@@ -211,5 +216,6 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
                 viewModel.setMediaSourceWithService(track)
             }
         )
+    }
     }
 }
