@@ -44,6 +44,7 @@ fun AllAlbums(
     modifier: Modifier = Modifier,
     onAlbumSelected: (AlbumDocument) -> Unit = { _ -> },
     allAlbums: List<AlbumDocument>,
+    getCoverUri: (String) -> String = { "" },
     onBack: () -> Unit = {},
 ) {
     Column(
@@ -91,6 +92,7 @@ fun AllAlbums(
                     AlbumCover(
                         modifier = Modifier.size(56.dp),
                         label = albumName,
+                        coverUri = getCoverUri(album.cover),
                         shape = RoundedCornerShape(10.dp)
                     )
                     Spacer(Modifier.size(12.dp))

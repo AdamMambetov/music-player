@@ -126,6 +126,7 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
         "albums" -> AllAlbums(
             modifier = Modifier.fillMaxSize(),
             allAlbums = viewModel.allAlbums,
+            getCoverUri = { viewModel.getCoverUri(coverString = it) },
             onAlbumSelected = { album ->
                 viewModel.currentAlbum = album
                 screen = "album"

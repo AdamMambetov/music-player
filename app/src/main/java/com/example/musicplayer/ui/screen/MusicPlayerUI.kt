@@ -161,21 +161,50 @@ fun MusicPlayerScreen(
                     .verticalScroll(rememberScrollState())
             ) {
                 Spacer(Modifier.height(12.dp))
-                Text(
-                    name,
-                    color = OnSurfacePrimary,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    artists,
-                    color = OnSurfaceSecondary,
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.align(Alignment.CenterStart)) {
+                        Text(
+                            name,
+                            color = OnSurfacePrimary,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            artists,
+                            color = OnSurfaceSecondary,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    val rank = viewModel.allTracks.sortedByDescending { it.listenInSec }
+                        .indexOfFirst { it.id == viewModel.currentTrack.id } + 1
+                    if (rank > 0) {
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .background(SurfaceCard.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 6.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                painterResource(R.drawable.trophy),
+                                contentDescription = "Rank",
+                                tint = Blue60,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                "$rank/${viewModel.allTracks.size}",
+                                color = OnSurfacePrimary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
                 Spacer(Modifier.height(6.dp))
 
                 // Border 2
@@ -189,7 +218,7 @@ fun MusicPlayerScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 10.dp, vertical = 10.dp)
+                            .padding(top = 10.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -255,9 +284,8 @@ fun MusicPlayerScreen(
                                         label = "Поиск",
                                         onClick = { onMoveTo("search") }
                                     )
-//                                    CategoryItem(icon = R.drawable.folder, label = "Папки")
                                     CategoryItem(
-                                        icon = R.drawable.play_arrow,
+                                        icon = R.drawable.tracks,
                                         label = "Треки",
                                         onClick = { onMoveTo("tracks") },
                                     )
@@ -311,8 +339,49 @@ fun MusicPlayerScreen(
                                         )
                                     }
                                 }
-                                Spacer(Modifier.height(4.dp))
-                                ListenStats(viewModel, currentListen)
+                                var showListenTime by remember { mutableStateOf(false) }
+                                val listenText = if (showListenTime) {
+                                    val days = currentListen / 86400
+                                    val hours = (currentListen % 86400) / 3600
+                                    val minutes = (currentListen % 3600) / 60
+                                    val seconds = currentListen % 60
+                                    buildString {
+                                        if (days > 0) append("$days д ")
+                                        if (hours > 0) append("$hours ч ")
+                                        if (minutes > 0) append("$minutes мин ")
+                                        if (seconds > 0 || isEmpty()) append("$seconds сек")
+                                    }.trim()
+                                } else {
+                                    "$currentListen"
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .background(SurfaceCard.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
+                                            .clickable { showListenTime = !showListenTime }
+                                            .padding(horizontal = 8.dp, vertical = 5.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                    ) {
+                                        Icon(
+                                            painterResource(R.drawable.timer),
+                                            contentDescription = "Listen time",
+                                            tint = Blue60,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Text(
+                                            listenText,
+                                            color = OnSurfacePrimary,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
                             }
                         }
 
@@ -481,7 +550,7 @@ fun MusicPlayerScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 BottomTabItem(
-                    icon = R.drawable.data_table,
+                    icon = R.drawable.queue,
                     label = "Очередь",
                     onClick = { onMoveTo("queue") })
                 BottomTabItem(
@@ -500,30 +569,6 @@ fun MusicPlayerScreen(
                     onClick = { onMoveTo("trackCreators") })
             }
         }
-    }
-}
-
-@Composable
-private fun ListenStats(viewModel: MusicPlayerViewModel, listenSec: Int) {
-    val rank = viewModel.allTracks.sortedByDescending { it.listenInSec }
-        .indexOfFirst { it.id == viewModel.currentTrack.id } + 1
-    val days = listenSec / 86400
-    val hours = (listenSec % 86400) / 3600
-    val minutes = (listenSec % 3600) / 60
-    val seconds = listenSec % 60
-    val timeStr = buildString {
-        if (days > 0) append("$days д "); if (hours > 0) append("$hours ч "); if (minutes > 0) append(
-        "$minutes мин "
-    ); if (seconds > 0 || isEmpty()) append("$seconds сек")
-    }.trim()
-    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Очки: $listenSec", color = OnSurfaceSecondary, fontSize = 13.sp)
-        Text("Время: $timeStr", color = OnSurfaceSecondary, fontSize = 13.sp)
-        Text(
-            "Место: $rank/${viewModel.allTracks.size}",
-            color = OnSurfaceSecondary,
-            fontSize = 13.sp
-        )
     }
 }
 
@@ -558,7 +603,6 @@ private fun CategoryItem(icon: Int, label: String, onClick: () -> Unit = {}) {
             tint = OnSurfaceSecondary,
             modifier = Modifier.size(22.dp)
         )
-        Spacer(Modifier.height(4.dp))
         Text(
             text = label,
             color = OnSurfaceSecondary,
@@ -835,7 +879,6 @@ fun AllCreatorsScreen(
     viewModel: MusicPlayerViewModel,
     onBack: () -> Unit = {},
     onCreatorSelected: (CreatorDocument) -> Unit = {},
-    onTrackSelected: (TrackDocument) -> Unit = {}
 ) {
     val listState = rememberLazyListState()
     Column(

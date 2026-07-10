@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -37,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
@@ -92,7 +94,7 @@ fun SearchScreen(
                         tint = OnSurfacePrimary
                     )
                 }
-                androidx.compose.foundation.text.BasicTextField(
+                BasicTextField(
                     value = musicState.searchQuery,
                     onValueChange = viewModel::onSearchQueryChange,
                     singleLine = true,
@@ -143,19 +145,23 @@ fun SearchScreen(
             ) {
                 items(displayAlbums) { album ->
                     val albumName = album.aliases.getOrElse(0) { "Unknown" }
+                    val albumCoverUri = viewModel.getCoverUri(coverString = album.cover)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.clickable { onAlbumSelected(album) }
+                        modifier = Modifier
+                            .widthIn(max = 90.dp)
+                            .clickable { onAlbumSelected(album) }
                     ) {
                         AlbumCover(
                             modifier = Modifier
                                 .size(90.dp)
                                 .clip(RoundedCornerShape(12.dp)),
                             label = albumName,
+                            coverUri = albumCoverUri,
                             shape = RoundedCornerShape(12.dp)
                         )
                         Spacer(Modifier.height(4.dp))
-                        Text(albumName, color = OnSurfacePrimary, fontSize = 11.sp, maxLines = 1)
+                        Text(albumName, color = OnSurfacePrimary, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth())
                     }
                 }
             }
