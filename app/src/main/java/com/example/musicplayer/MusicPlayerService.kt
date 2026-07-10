@@ -59,11 +59,12 @@ class MusicPlayerService : MediaSessionService() {
                 showToast("RG off")
             } else {
                 val uri = player.currentMediaItem?.localConfiguration?.uri ?: return@OnSharedPreferenceChangeListener
+                val trackId = player.currentMediaItem?.mediaMetadata?.extras?.getString("track_id")
                 serviceScope.launch {
-                    val result = replayGain.analyzeTrack(this@MusicPlayerService, uri)
+                    val result = getOrAnalyzeGain(trackId, uri)
                     val gainDb = result.trackGainDb ?: 0f
-                    gainProcessor.setGainDb(gainDb)
-                    showToast("RG: %.1f dB".format(gainDb))
+                    gainProcessor.setGainDb(gainDb, result.peakLevelDb)
+                    showToast("RG: %.1f dB (peak: %.1f)".format(gainDb, result.peakLevelDb))
                 }
             }
         }
@@ -73,6 +74,19 @@ class MusicPlayerService : MediaSessionService() {
         handler.post {
             android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private suspend fun getOrAnalyzeGain(trackId: String?, uri: android.net.Uri): AnalysisResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        if (trackId != null) {
+            val cached = com.example.musicplayer.data.PostgresDataSource.instance?.getTrackGain(trackId)
+            if (cached != null) return@withContext cached
+        }
+        val result = replayGain.analyzeTrack(this@MusicPlayerService, uri)
+        if (trackId != null) {
+            val gainDb = result.trackGainDb ?: 0f
+            com.example.musicplayer.data.PostgresDataSource.instance?.putTrackGain(trackId, gainDb, result.peakLevelDb)
+        }
+        result
     }
 
     companion object {
@@ -132,11 +146,12 @@ class MusicPlayerService : MediaSessionService() {
                 return
             }
             mediaItem?.localConfiguration?.uri?.let { uri ->
+                val trackId = mediaItem.mediaMetadata?.extras?.getString("track_id")
                 serviceScope.launch {
-                    val result = replayGain.analyzeTrack(this@MusicPlayerService, uri)
+                    val result = getOrAnalyzeGain(trackId, uri)
                     val gainDb = result.trackGainDb ?: 0f
-                    gainProcessor.setGainDb(gainDb)
-                    showToast("RG: %.1f dB".format(gainDb))
+                    gainProcessor.setGainDb(gainDb, result.peakLevelDb)
+                    showToast("RG: %.1f dB (peak: %.1f)".format(gainDb, result.peakLevelDb))
                 }
             }
         }

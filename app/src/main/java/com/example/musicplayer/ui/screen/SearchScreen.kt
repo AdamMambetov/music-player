@@ -2,6 +2,7 @@ package com.example.musicplayer.ui.screen
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -94,10 +96,14 @@ fun SearchScreen(
                     AssistChip(onClick = { viewModel.onSearchQueryChange(name) }, label = { Text(name, fontSize = 12.sp) }, colors = AssistChipDefaults.assistChipColors(containerColor = SurfaceCard))
                 }
             }
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
-                items(musicState.trackList) { track ->
-                    TrackListItem(track = track, isActive = track == viewModel.currentTrack, coverUri = viewModel.getCoverUri(coverString = track.cover), onClick = { viewModel.setQueueToDefault(); viewModel.setMediaSourceWithService(track); onTrackSelected(track) })
+            val searchListState = rememberLazyListState()
+            Box(modifier = Modifier.weight(1f)) {
+                LazyColumn(state = searchListState, verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+                    items(musicState.trackList) { track ->
+                        TrackListItem(track = track, isActive = track == viewModel.currentTrack, coverUri = viewModel.getCoverUri(coverString = track.cover), onClick = { viewModel.setQueueToDefault(); viewModel.setMediaSourceWithService(track); onTrackSelected(track) })
+                    }
                 }
+                BottomScrollControls(searchListState, viewModel, musicState.trackList)
             }
         }
     }

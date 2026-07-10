@@ -5,6 +5,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
 import kotlin.math.pow
+import kotlin.math.tanh
 
 class GainAudioProcessor : AudioProcessor {
 
@@ -15,7 +16,27 @@ class GainAudioProcessor : AudioProcessor {
     private var gainFactor = 1f
     private var active = false
 
-    fun setGainDb(gainDb: Float) {
+    companion object {
+        private val EMPTY_BUFFER: ByteBuffer =
+            ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
+        private const val GAIN_MIN_DB = -12f
+        private const val GAIN_MAX_DB = 6f
+        private const val PEAK_HARD_LIMIT_DB = -1f
+        private const val PEAK_SOFT_LIMIT_DB = -3f
+    }
+
+    fun setGainDb(rawGainDb: Float, peakLevelDb: Float = -100f) {
+        var gainDb = rawGainDb.coerceIn(GAIN_MIN_DB, GAIN_MAX_DB)
+
+        if (peakLevelDb > PEAK_SOFT_LIMIT_DB) {
+            val headroom = PEAK_HARD_LIMIT_DB - peakLevelDb
+            if (headroom < 0f) {
+                gainDb = 0f
+            } else {
+                gainDb = gainDb.coerceIn(GAIN_MIN_DB, headroom)
+            }
+        }
+
         gainFactor = 10f.pow(gainDb / 20f)
         active = abs(gainFactor - 1f) > 0.001f
     }
@@ -34,8 +55,9 @@ class GainAudioProcessor : AudioProcessor {
 
         val out = ShortArray(samples.size)
         for (i in samples.indices) {
-            val v = (samples[i] * gainFactor).toInt()
-            out[i] = v.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+            val scaled = samples[i] * gainFactor / Short.MAX_VALUE
+            val limited = tanh(scaled) * Short.MAX_VALUE
+            out[i] = limited.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
 
         val bytes = ByteBuffer.allocateDirect(out.size * 2).order(ByteOrder.nativeOrder())
@@ -62,10 +84,5 @@ class GainAudioProcessor : AudioProcessor {
         inputAudioFormat = AudioProcessor.AudioFormat.NOT_SET
         gainFactor = 1f
         active = false
-    }
-
-    companion object {
-        private val EMPTY_BUFFER: ByteBuffer =
-            ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
     }
 }

@@ -21,6 +21,10 @@ class PostgresDataSource(
         private const val TAG = "PostgresDataSource"
         private const val GRAPH_NAME = "music"
 
+        @Volatile
+        var instance: PostgresDataSource? = null
+            private set
+
         val json = Json {
             ignoreUnknownKeys = true
             encodeDefaults = true
@@ -32,6 +36,7 @@ class PostgresDataSource(
             Class.forName("org.postgresql.Driver")
             val url = "jdbc:postgresql://$host:$port/$database?connectTimeout=5&socketTimeout=10"
             connection = DriverManager.getConnection(url, user, password)
+            instance = this
 
             val stmt = connection?.createStatement()
             val rs = stmt?.executeQuery("SELECT version()")
@@ -220,6 +225,15 @@ class PostgresDataSource(
         """)
 
         stmt.executeUpdate("""
+            CREATE TABLE IF NOT EXISTS track_gain (
+                track_id TEXT PRIMARY KEY,
+                gain_db REAL NOT NULL DEFAULT 0,
+                peak_level_db REAL NOT NULL DEFAULT -100,
+                analyzed_at BIGINT NOT NULL DEFAULT 0
+            )
+        """)
+
+        stmt.executeUpdate("""
             CREATE TABLE IF NOT EXISTS search_index (
                 entity_id TEXT PRIMARY KEY,
                 entity_type TEXT NOT NULL,
@@ -267,6 +281,7 @@ class PostgresDataSource(
     fun clearAll() {
         val stmt = connection?.createStatement() ?: return
         stmt.executeUpdate("DELETE FROM search_index")
+        stmt.executeUpdate("DELETE FROM track_gain")
         stmt.executeUpdate("DELETE FROM playlist_tracks")
         stmt.executeUpdate("DELETE FROM album_tracks")
         stmt.executeUpdate("DELETE FROM album_creators")
@@ -276,6 +291,68 @@ class PostgresDataSource(
         stmt.executeUpdate("DELETE FROM tracks")
         stmt.executeUpdate("DELETE FROM creators")
         stmt.close()
+    }
+
+    // ==================== Track Gain ====================
+
+    fun putTrackGain(trackId: String, gainDb: Float, peakLevelDb: Float) {
+        val ps = connection?.prepareStatement("""
+            INSERT INTO track_gain (track_id, gain_db, peak_level_db, analyzed_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT (track_id) DO UPDATE SET
+                gain_db = EXCLUDED.gain_db,
+                peak_level_db = EXCLUDED.peak_level_db,
+                analyzed_at = EXCLUDED.analyzed_at
+        """) ?: return
+        ps.setString(1, trackId)
+        ps.setFloat(2, gainDb)
+        ps.setFloat(3, peakLevelDb)
+        ps.setLong(4, System.currentTimeMillis())
+        ps.executeUpdate()
+        ps.close()
+    }
+
+    fun getTrackGain(trackId: String): com.example.musicplayer.AnalysisResult? {
+        val ps = connection?.prepareStatement("SELECT gain_db, peak_level_db FROM track_gain WHERE track_id = ?") ?: return null
+        ps.setString(1, trackId)
+        val rs = ps.executeQuery()
+        val result = if (rs.next()) {
+            com.example.musicplayer.AnalysisResult(
+                trackGainDb = rs.getFloat("gain_db"),
+                peakLevelDb = rs.getFloat("peak_level_db"),
+                analyzedAt = System.currentTimeMillis()
+            )
+        } else null
+        rs.close()
+        ps.close()
+        return result
+    }
+
+    fun getAllTrackGains(): Map<String, com.example.musicplayer.AnalysisResult> {
+        val rs = connection?.createStatement()?.executeQuery("SELECT track_id, gain_db, peak_level_db FROM track_gain") ?: return emptyMap()
+        val map = mutableMapOf<String, com.example.musicplayer.AnalysisResult>()
+        while (rs.next()) {
+            map[rs.getString("track_id")] = com.example.musicplayer.AnalysisResult(
+                trackGainDb = rs.getFloat("gain_db"),
+                peakLevelDb = rs.getFloat("peak_level_db"),
+                analyzedAt = System.currentTimeMillis()
+            )
+        }
+        rs.close()
+        return map
+    }
+
+    fun getUnanalyzedTrackIds(allTrackIds: List<String>): List<String> {
+        if (allTrackIds.isEmpty()) return emptyList()
+        val ps = connection?.prepareStatement("SELECT track_id FROM track_gain") ?: return allTrackIds
+        val rs = ps.executeQuery()
+        val analyzed = mutableSetOf<String>()
+        while (rs.next()) {
+            analyzed.add(rs.getString("track_id"))
+        }
+        rs.close()
+        ps.close()
+        return allTrackIds.filter { it !in analyzed }
     }
 
     // ==================== Creators ====================

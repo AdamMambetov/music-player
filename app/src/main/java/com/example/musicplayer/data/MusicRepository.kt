@@ -1,8 +1,11 @@
 package com.example.musicplayer.data
 
+import android.content.Context
 import android.util.Log
 import androidx.core.net.toUri
+import com.example.musicplayer.AnalysisResult
 import com.example.musicplayer.MediaReader
+import com.example.musicplayer.ReplayGain
 import com.example.musicplayer.mdreader.MarkdownReader
 import com.example.musicplayer.mdreader.PathHelper
 import kotlinx.coroutines.Dispatchers
@@ -219,6 +222,44 @@ class MusicRepository(
 
         val playlistsById = postgres.getAllPlaylists().associateBy { it.id }
         playlistIds.mapNotNull { playlistsById[it] }
+    }
+
+    // ==================== Track Gain ====================
+
+    fun getTrackGain(trackId: String): AnalysisResult? {
+        return postgres.getTrackGain(trackId)
+    }
+
+    suspend fun analyzeAllTracks(
+        tracks: List<TrackDocument>,
+        context: Context,
+        onProgress: (analyzed: Int, total: Int) -> Unit = { _, _ -> }
+    ) = withContext(Dispatchers.IO) {
+        val unanalyzedIds = postgres.getUnanalyzedTrackIds(tracks.map { it.id })
+        if (unanalyzedIds.isEmpty()) {
+            Log.d(TAG, "All tracks already analyzed")
+            return@withContext
+        }
+
+        val replayGain = ReplayGain()
+        val unanalyzedTracks = tracks.filter { it.id in unanalyzedIds }
+        Log.d(TAG, "Analyzing ${unanalyzedTracks.size} tracks...")
+
+        unanalyzedTracks.forEachIndexed { index, track ->
+            try {
+                if (track.sourceUri.isNotEmpty()) {
+                    val uri = android.net.Uri.parse(track.sourceUri)
+                    val result = replayGain.analyzeTrack(context, uri)
+                    val gainDb = result.trackGainDb ?: 0f
+                    postgres.putTrackGain(track.id, gainDb, result.peakLevelDb)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to analyze track ${track.id}: ${e.message}")
+            }
+            onProgress(index + 1, unanalyzedTracks.size)
+        }
+
+        Log.d(TAG, "Analysis complete: ${unanalyzedTracks.size} tracks analyzed")
     }
 
     // ==================== Scan ====================

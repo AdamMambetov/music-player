@@ -313,6 +313,7 @@ fun QueueTracksScreen(modifier: Modifier = Modifier, viewModel: MusicPlayerViewM
         }
         Box(modifier = Modifier.weight(1f)) {
             LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) { items(items = queue, key = { it.id }) { track -> TrackListItem(track = track, isActive = track == viewModel.currentTrack, coverUri = viewModel.getCoverUri(coverString = track.cover), onClick = { onTrackSelected(track) }) } }
+            BottomScrollControls(listState, viewModel, queue)
         }
         BottomPlayerMini(viewModel)
     }
@@ -356,6 +357,7 @@ fun AllTracksScreen(modifier: Modifier = Modifier, viewModel: MusicPlayerViewMod
         }
         Box(modifier = Modifier.weight(1f)) {
             LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) { items(items = viewModel.allTracks, key = { it.id }) { track -> TrackListItem(track = track, isActive = track == viewModel.currentTrack, coverUri = viewModel.getCoverUri(coverString = track.cover), onClick = { onTrackSelected(track) }) } }
+            BottomScrollControls(listState, viewModel, viewModel.allTracks)
         }
         BottomPlayerMini(viewModel)
     }

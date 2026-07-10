@@ -261,6 +261,20 @@ class MusicPlayerViewModel(
 
             scanCovers()
             isScan = false
+
+            if (pathHelper.isReplayGainEnabled()) {
+                analyzeAllTracksInBackground(tracks)
+            }
+        }
+    }
+
+    fun analyzeAllTracksInBackground(tracks: List<TrackDocument> = allTracks.toList()) {
+        viewModelScope.launch(Dispatchers.IO) {
+            Log.d(TAG, "Starting batch analysis of ${tracks.size} tracks...")
+            repository.analyzeAllTracks(tracks, context) { analyzed, total ->
+                Log.d(TAG, "Analysis progress: $analyzed/$total")
+            }
+            Log.d(TAG, "Batch analysis complete")
         }
     }
 

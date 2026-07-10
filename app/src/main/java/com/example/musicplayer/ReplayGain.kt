@@ -88,6 +88,8 @@ class ReplayGain {
                                 val lo = bytes[i].toInt() and 0xff
                                 val hi = bytes[i + 1].toInt()
                                 val sample = (hi shl 8 or lo).toShort().toInt() / 32768.0
+                                val absSample = kotlin.math.abs(sample)
+                                if (absSample > peakSample) peakSample = absSample
                                 val filtered = shelfFilter.process(preFilter.process(sample))
                                 sumSquares += filtered * filtered
                                 sampleCount++
@@ -115,10 +117,12 @@ class ReplayGain {
 
             val rms = sqrt(sumSquares / maxOf(sampleCount, 1L))
             val loudnessDb = (20.0 * kotlin.math.log10(maxOf(rms, 1e-9))).toFloat()
+            val peakDb = (20.0 * kotlin.math.log10(maxOf(peakSample, 1e-9))).toFloat()
 
             // -14 dBFS ≈ 89 dB SPL (ReplayGain calibration)
             AnalysisResult(
                 trackGainDb = -loudnessDb - 14f,
+                peakLevelDb = peakDb,
                 referenceLoudnessDb = 89f,
                 analyzedAt = System.currentTimeMillis(),
             )
@@ -172,6 +176,7 @@ class ReplayGain {
 
 data class AnalysisResult(
     val trackGainDb: Float?,
+    val peakLevelDb: Float = -100f,
     val referenceLoudnessDb: Float = 89.0f,
     val analyzedAt: Long? = null
 )

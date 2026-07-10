@@ -166,7 +166,7 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
             allPlaylists = viewModel.allPlaylists,
             onPlaylistSelected = { playlist ->
                 viewModel.currentPlaylist = playlist
-                screen = "playlistTracks"
+                screen = "playlist"
             },
             onBack = { screen = "home" }
         )
