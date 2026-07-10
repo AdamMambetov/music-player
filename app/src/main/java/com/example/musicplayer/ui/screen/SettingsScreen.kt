@@ -161,12 +161,38 @@ fun SettingsScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
-        Button(modifier = Modifier.fillMaxWidth(), onClick = { viewModel.scanAll(true) }, colors = ButtonDefaults.buttonColors(containerColor = Blue60)) {
-            Text(text = "Clean Index and Rescan")
+        Button(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { viewModel.scanAll(true) },
+            enabled = !viewModel.isScan,
+            colors = ButtonDefaults.buttonColors(containerColor = Blue60)
+        ) {
+            if (viewModel.isScan) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = OnSurfacePrimary,
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+            }
+            Text(text = if (viewModel.isScan) "Scanning..." else "Clean Index and Rescan")
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Button(modifier = Modifier.fillMaxWidth(), onClick = { viewModel.scanAll(false) }, colors = ButtonDefaults.buttonColors(containerColor = Blue60)) {
-            Text(text = "Rescan")
+        Button(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { viewModel.scanAll(false) },
+            enabled = !viewModel.isScan,
+            colors = ButtonDefaults.buttonColors(containerColor = Blue60)
+        ) {
+            if (viewModel.isScan) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = OnSurfacePrimary,
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+            }
+            Text(text = if (viewModel.isScan) "Scanning..." else "Rescan")
         }
     }
 }
