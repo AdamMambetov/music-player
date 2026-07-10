@@ -7,6 +7,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Build
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -17,26 +18,62 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.session.MediaNotification
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import androidx.media3.session.MediaNotification
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 @OptIn(UnstableApi::class)
 class MusicPlayerService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var exoPlayer: ExoPlayer? = null
-    private var normalizer: LoudnessNormalizer? = null
     private val handler = Handler(Looper.getMainLooper())
     private var notificationManager: NotificationManager? = null
     private var notificationStarted = false
 
     private var currentCoverUri: String? = null
     private var currentCover: Bitmap? = null
+
+    private val replayGain = ReplayGain()
+    private val gainProcessor = GainAudioProcessor()
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private lateinit var pathHelper: com.example.musicplayer.mdreader.PathHelper
+
+    private val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "replay_gain_enabled") {
+            val player = exoPlayer ?: return@OnSharedPreferenceChangeListener
+            if (!pathHelper.isReplayGainEnabled()) {
+                gainProcessor.setGainDb(0f)
+                showToast("RG off")
+            } else {
+                val uri = player.currentMediaItem?.localConfiguration?.uri ?: return@OnSharedPreferenceChangeListener
+                serviceScope.launch {
+                    val result = replayGain.analyzeTrack(this@MusicPlayerService, uri)
+                    val gainDb = result.trackGainDb ?: 0f
+                    gainProcessor.setGainDb(gainDb)
+                    showToast("RG: %.1f dB".format(gainDb))
+                }
+            }
+        }
+    }
+
+    private fun showToast(msg: String) {
+        handler.post {
+            android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 
     companion object {
         const val NOTIFICATION_CHANNEL_ID = "music_player_channel"
@@ -68,15 +105,19 @@ class MusicPlayerService : MediaSessionService() {
                 Player.STATE_IDLE -> {
                     print("STATE_IDLE")
                 }
+
                 Player.STATE_ENDED -> {
                     print("STATE_ENDED")
                 }
+
                 Player.STATE_BUFFERING -> {
                     print("STATE_BUFFERING")
                 }
+
                 Player.STATE_READY -> {
                     handler.postDelayed({ updateNotification() }, 200L)
                 }
+
                 else -> {
                     print("else")
                 }
@@ -86,11 +127,26 @@ class MusicPlayerService : MediaSessionService() {
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             handler.post { updateNotification() }
+            if (!pathHelper.isReplayGainEnabled()) {
+                gainProcessor.setGainDb(0f)
+                return
+            }
+            mediaItem?.localConfiguration?.uri?.let { uri ->
+                serviceScope.launch {
+                    val result = replayGain.analyzeTrack(this@MusicPlayerService, uri)
+                    val gainDb = result.trackGainDb ?: 0f
+                    gainProcessor.setGainDb(gainDb)
+                    showToast("RG: %.1f dB".format(gainDb))
+                }
+            }
         }
     }
 
     override fun onCreate() {
         super.onCreate()
+        pathHelper = com.example.musicplayer.mdreader.PathHelper(this)
+        getSharedPreferences("music_player_prefs", MODE_PRIVATE)
+            .registerOnSharedPreferenceChangeListener(prefsListener)
 
         setMediaNotificationProvider(object : MediaNotification.Provider {
             override fun createNotification(
@@ -99,7 +155,10 @@ class MusicPlayerService : MediaSessionService() {
                 actionFactory: MediaNotification.ActionFactory,
                 callback: MediaNotification.Provider.Callback
             ): MediaNotification {
-                val emptyNotification = android.app.Notification.Builder(this@MusicPlayerService, NOTIFICATION_CHANNEL_ID)
+                val emptyNotification = android.app.Notification.Builder(
+                    this@MusicPlayerService,
+                    NOTIFICATION_CHANNEL_ID
+                )
                     .setSmallIcon(R.drawable.ic_launcher_foreground)
                     .build()
                 return MediaNotification(NOTIFICATION_ID, emptyNotification)
@@ -115,7 +174,20 @@ class MusicPlayerService : MediaSessionService() {
         notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         createNotificationChannel()
 
+        val renderersFactory = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(
+                context: Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean
+            ): AudioSink {
+                return DefaultAudioSink.Builder(context)
+                    .setAudioProcessors(arrayOf<AudioProcessor>(gainProcessor))
+                    .build()
+            }
+        }
+
         exoPlayer = ExoPlayer.Builder(this)
+            .setRenderersFactory(renderersFactory)
             .setMediaSourceFactory(DefaultMediaSourceFactory(this))
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -126,15 +198,6 @@ class MusicPlayerService : MediaSessionService() {
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
-
-        // Нормализация громкости через DynamicsProcessing
-        exoPlayer?.let { player ->
-            normalizer = LoudnessNormalizer(player.audioSessionId).apply {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    enable()
-                }
-            }
-        }
 
         exoPlayer?.addListener(playerListener)
 
@@ -167,6 +230,7 @@ class MusicPlayerService : MediaSessionService() {
                             MusicPlayerViewModel.onNextTrack?.invoke()
                             return true
                         }
+
                         android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
                             MusicPlayerViewModel.onPreviousTrack?.invoke()
                             return true
@@ -228,20 +292,34 @@ class MusicPlayerService : MediaSessionService() {
         if (uri.isNullOrEmpty()) {
             currentCoverUri = null
             currentCover = null
-            handler.postDelayed({ postNotification(title, artist, player.isPlaying, currentCover) }, 200L)
+            handler.postDelayed(
+                { postNotification(title, artist, player.isPlaying, currentCover) },
+                200L
+            )
         } else if (uri == currentCoverUri) {
-            handler.postDelayed({ postNotification(title, artist, player.isPlaying, currentCover) }, 200L)
+            handler.postDelayed(
+                { postNotification(title, artist, player.isPlaying, currentCover) },
+                200L
+            )
         } else {
             currentCoverUri = uri
             Thread {
                 val bitmap = loadCoverBitmap(uri)
                 currentCover = bitmap
-                handler.postDelayed({ postNotification(title, artist, player.isPlaying, bitmap) }, 200L)
+                handler.postDelayed(
+                    { postNotification(title, artist, player.isPlaying, bitmap) },
+                    200L
+                )
             }.start()
         }
     }
 
-    private fun postNotification(title: String, artist: String, isPlaying: Boolean, coverBitmap: Bitmap?) {
+    private fun postNotification(
+        title: String,
+        artist: String,
+        isPlaying: Boolean,
+        coverBitmap: Bitmap?
+    ) {
         val customViews = buildCustomRemoteViews(title, artist, isPlaying, coverBitmap)
 
         val notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
@@ -306,9 +384,11 @@ class MusicPlayerService : MediaSessionService() {
                     if (player.isPlaying) player.pause() else player.play()
                 }
             }
+
             ACTION_NEXT -> {
                 MusicPlayerViewModel.onNextTrack?.invoke()
             }
+
             ACTION_PREVIOUS -> {
                 MusicPlayerViewModel.onPreviousTrack?.invoke()
             }
@@ -322,9 +402,8 @@ class MusicPlayerService : MediaSessionService() {
 
     override fun onDestroy() {
         exoPlayer?.removeListener(playerListener)
-
-        normalizer?.release()
-        normalizer = null
+        getSharedPreferences("music_player_prefs", MODE_PRIVATE)
+            .unregisterOnSharedPreferenceChangeListener(prefsListener)
 
         mediaSession?.let { session ->
             session.release()

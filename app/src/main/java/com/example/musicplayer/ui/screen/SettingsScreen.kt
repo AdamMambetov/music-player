@@ -23,6 +23,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -62,10 +64,12 @@ fun SettingsScreen(
     var notePath by remember { mutableStateOf(EMPTY_PATH) }
     var musicPath by remember { mutableStateOf(EMPTY_PATH) }
     var fullStorageAccessGranted by remember { mutableStateOf(false) }
+    var replayGainEnabled by remember { mutableStateOf(false) }
     val pathHelper = viewModel.pathHelper
 
     LaunchedEffect(key1 = Unit) {
         fullStorageAccessGranted = Environment.isExternalStorageManager()
+        replayGainEnabled = pathHelper.isReplayGainEnabled()
         val storedNotePath = pathHelper.getNotesFolderPath()
         notePath = if (storedNotePath.isEmpty()) EMPTY_PATH else pathHelper.getPathFromUri(uri = storedNotePath.toUri())
         val storedMusicPath = pathHelper.getTracksFolderPath()
@@ -132,6 +136,29 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
         SettingsCard(title = "Music Path", subtitle = musicPath) { trackPathLauncher.launch(null) }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+            shape = RoundedCornerShape(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Постоянный уровень громкости", color = OnSurfacePrimary, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Checkbox(
+                    checked = replayGainEnabled,
+                    onCheckedChange = {
+                        replayGainEnabled = it
+                        pathHelper.setReplayGainEnabled(it)
+                    },
+                    colors = CheckboxDefaults.colors(checkedColor = Blue60),
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
         Button(modifier = Modifier.fillMaxWidth(), onClick = { viewModel.scanAll(true) }, colors = ButtonDefaults.buttonColors(containerColor = Blue60)) {

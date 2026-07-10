@@ -331,7 +331,7 @@ class MusicPlayerViewModel(
                 } ?: run {
                     Toast.makeText(context, "Service not connected", Toast.LENGTH_SHORT).show()
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 Toast.makeText(context, "SourceFile не валидный!", Toast.LENGTH_SHORT).show()
                 nextTrack()
             }
@@ -502,7 +502,7 @@ class MusicPlayerViewModel(
         val durSec = ((durMs / 1000).toInt()).coerceAtLeast(1)
         val track = currentTrack
         val oldListen = track.listenInSec
-        val newListen = if (multiplier == 0) 0 else (oldListen + durSec * multiplier).coerceAtLeast(0)
+        val newListen = if (multiplier == 0) 0 else (oldListen + durSec * multiplier)
         val updated = track.copy(listenInSec = newListen)
         currentTrack = updated
         currentListenInSec = newListen

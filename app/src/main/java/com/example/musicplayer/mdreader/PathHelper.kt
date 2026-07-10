@@ -13,6 +13,7 @@ class PathHelper(val context: Context) {
         private const val SP_NAME = "music_player_prefs"
         private const val TRACKS_FOLDER_SP_KEY = "music_path"
         private const val NOTES_FOLDER_SP_KEY = "note_path"
+        private const val REPLAY_GAIN_ENABLED_KEY = "replay_gain_enabled"
         const val ALBUMS_FOLDER_NAME_IN_NOTES = "Albums"
         const val COVERS_FOLDER_NAME_IN_NOTES = "Covers"
         const val CREATORS_FOLDER_NAME_IN_NOTES = "Creators"
@@ -63,6 +64,16 @@ class PathHelper(val context: Context) {
     fun setNotesFolderPath(path: String) {
         getSharedPreferences().edit {
             putString(NOTES_FOLDER_SP_KEY, path)
+        }
+    }
+
+    fun isReplayGainEnabled(): Boolean {
+        return getSharedPreferences().getBoolean(REPLAY_GAIN_ENABLED_KEY, false)
+    }
+
+    fun setReplayGainEnabled(enabled: Boolean) {
+        getSharedPreferences().edit {
+            putBoolean(REPLAY_GAIN_ENABLED_KEY, enabled)
         }
     }
 

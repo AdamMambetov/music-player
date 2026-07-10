@@ -34,7 +34,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -211,9 +210,9 @@ fun MusicPlayerScreen(
 
                 // Listen adjust
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                    listOf(-10, -1, 0, 1, 10).forEach { mult ->
-                        val label = when (mult) { -10 -> "-10"; -1 -> "-1"; 0 -> "0"; 1 -> "+1"; else -> "+10" }
-                        IconButton(onClick = { viewModel.adjustListenInSec(mult) }) { Text(label, color = OnSurfaceSecondary, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                    listOf(-10, -1, 0, 1, 10).forEach { multi ->
+                        val label = when (multi) { -10 -> "-10"; -1 -> "-1"; 0 -> "0"; 1 -> "+1"; else -> "+10" }
+                        IconButton(onClick = { viewModel.adjustListenInSec(multi) }) { Text(label, color = OnSurfaceSecondary, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
                     }
                 }
 
