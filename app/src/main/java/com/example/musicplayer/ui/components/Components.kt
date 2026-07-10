@@ -45,13 +45,23 @@ import com.example.musicplayer.ui.theme.SurfaceCard
 fun AlbumCover(
     modifier: Modifier = Modifier,
     label: String = "",
+    coverUri: String = "",
     shape: RoundedCornerShape = RoundedCornerShape(12.dp),
 ) {
-    androidx.compose.foundation.Image(
-        painter = painterResource(R.mipmap.no_album_art),
-        contentDescription = label,
-        modifier = modifier.clip(shape)
-    )
+    if (coverUri.isNotEmpty()) {
+        AsyncImage(
+            model = coverUri,
+            contentDescription = label,
+            contentScale = ContentScale.Crop,
+            modifier = modifier.clip(shape),
+        )
+    } else {
+        androidx.compose.foundation.Image(
+            painter = painterResource(R.mipmap.no_album_art),
+            contentDescription = label,
+            modifier = modifier.clip(shape)
+        )
+    }
 }
 
 @Composable

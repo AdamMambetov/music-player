@@ -396,8 +396,9 @@ fun BottomPlayerMini(viewModel: MusicPlayerViewModel) {
     val isPlaying = viewModel.isPlaying
     val name = viewModel.currentTrack.aliases.getOrElse(0) { "" }
     val artists = viewModel.currentTrack.creators.joinToString(", ") { it.aliases.getOrElse(0) { "" } }
+    val coverUri = viewModel.getCoverUri(coverString = viewModel.currentTrack.cover)
     Row(modifier = Modifier.fillMaxWidth().height(64.dp).background(SurfaceCard).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        AlbumCover(modifier = Modifier.size(48.dp), label = name)
+        AlbumCover(modifier = Modifier.size(48.dp), label = name, coverUri = coverUri)
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) { Text(text = name.ifEmpty { "No track" }, color = OnSurfacePrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1); Text(text = artists.ifEmpty { "Unknown" }, color = OnSurfaceSecondary, fontSize = 12.sp, maxLines = 1) }
         IconButton(onClick = { viewModel.previousTrack() }) { Icon(painterResource(R.drawable.skip_previous), contentDescription = "Previous", tint = OnSurfacePrimary, modifier = Modifier.size(32.dp)) }
