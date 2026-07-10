@@ -484,7 +484,11 @@ class MusicPlayerViewModel(
 
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            val musicList = repository.searchTracks(query)
+            val musicList = if (query.isBlank()) {
+                allTracks.sortedByDescending { it.listenInSec }.take(10)
+            } else {
+                repository.searchTracks(query)
+            }
             musicState = musicState.copy(trackList = musicList)
         }
     }

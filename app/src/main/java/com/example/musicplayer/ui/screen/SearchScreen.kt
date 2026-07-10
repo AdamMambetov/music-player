@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -71,7 +72,29 @@ fun SearchScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    OutlinedTextField(value = musicState.searchQuery, onValueChange = viewModel::onSearchQueryChange, placeholder = { Text("Поиск песен, альбомов, артистов...") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Blue60, unfocusedBorderColor = DividerColor, focusedTextColor = OnSurfacePrimary, unfocusedTextColor = OnSurfacePrimary, cursorColor = Blue60, focusedPlaceholderColor = OnSurfaceSecondary, unfocusedPlaceholderColor = OnSurfaceSecondary), modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(
+                        value = musicState.searchQuery,
+                        onValueChange = viewModel::onSearchQueryChange,
+                        placeholder = { Text("Поиск песен, альбомов, артистов...") },
+                        singleLine = true,
+                        trailingIcon = {
+                            if (musicState.searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Clear", tint = OnSurfaceSecondary, modifier = Modifier.size(20.dp))
+                                }
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Blue60,
+                            unfocusedBorderColor = DividerColor,
+                            focusedTextColor = OnSurfacePrimary,
+                            unfocusedTextColor = OnSurfacePrimary,
+                            cursorColor = Blue60,
+                            focusedPlaceholderColor = OnSurfaceSecondary,
+                            unfocusedPlaceholderColor = OnSurfaceSecondary
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 },
                 navigationIcon = { IconButton(onClick = { onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = OnSurfacePrimary) } },
                 actions = { IconButton(onClick = {}) { Icon(painterResource(R.drawable.search), contentDescription = "Search", tint = OnSurfacePrimary) } },
