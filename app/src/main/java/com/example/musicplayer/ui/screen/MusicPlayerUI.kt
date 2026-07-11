@@ -82,6 +82,7 @@ import com.example.musicplayer.data.PlaylistDocument
 import com.example.musicplayer.data.TrackDocument
 import com.example.musicplayer.ui.components.AlbumCover
 import com.example.musicplayer.ui.components.TrackListItem
+import com.example.musicplayer.ui.components.formatListenTime
 import com.example.musicplayer.ui.components.formatTime
 import com.example.musicplayer.ui.theme.Blue60
 import com.example.musicplayer.ui.theme.DividerColor
@@ -416,18 +417,7 @@ fun MusicPlayerScreen(
                                 }
                                 var showListenTime by remember { mutableIntStateOf(0) }
                                 val listenText = when (showListenTime) {
-                                    1 -> {
-                                        val days = currentListen / 86400
-                                        val hours = (currentListen % 86400) / 3600
-                                        val minutes = (currentListen % 3600) / 60
-                                        val seconds = currentListen % 60
-                                        buildString {
-                                            if (days > 0) append("$days д ")
-                                            if (hours > 0) append("$hours ч ")
-                                            if (minutes > 0) append("$minutes мин ")
-                                            if (seconds > 0 || isEmpty()) append("$seconds сек")
-                                        }.trim()
-                                    }
+                                    1 -> formatListenTime(currentListen)
                                     2 -> {
                                         val duration = viewModel.currentTrack.durationSec
                                         if (duration > 0) {

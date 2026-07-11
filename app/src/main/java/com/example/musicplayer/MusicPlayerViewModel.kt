@@ -433,6 +433,42 @@ class MusicPlayerViewModel(
                             }
                         }
                     }
+                    musicState = musicState.copy(
+                        trackList = musicState.trackList.map {
+                            if (it.id == trackId) updated else it
+                        }
+                    )
+                    allAlbums.forEachIndexed { aIdx, album ->
+                        val tIdx = album.tracklist.indexOfFirst { it.id == trackId }
+                        if (tIdx >= 0) {
+                            allAlbums[aIdx] = album.copy(
+                                tracklist = album.tracklist.toMutableList().also {
+                                    it[tIdx] = updated
+                                }
+                            )
+                        }
+                    }
+                    if (currentAlbum.tracklist.any { it.id == trackId }) {
+                        currentAlbum = currentAlbum.copy(
+                            tracklist = currentAlbum.tracklist.map {
+                                if (it.id == trackId) updated else it
+                            }
+                        )
+                    }
+                    if (currentPlaylist.tracklist.any { it.id == trackId }) {
+                        currentPlaylist = currentPlaylist.copy(
+                            tracklist = currentPlaylist.tracklist.map {
+                                if (it.id == trackId) updated else it
+                            }
+                        )
+                    }
+                    if (favorites.tracklist.any { it.id == trackId }) {
+                        favorites = favorites.copy(
+                            tracklist = favorites.tracklist.map {
+                                if (it.id == trackId) updated else it
+                            }
+                        )
+                    }
                     viewModelScope.launch {
                         repository.incrementListen(updated, updated.creators)
                     }

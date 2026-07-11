@@ -186,10 +186,12 @@ fun SearchScreen(
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     items(musicState.trackList) { track ->
+                        val latestListenInSec = viewModel.allTracks.find { it.id == track.id }?.listenInSec ?: track.listenInSec
                         TrackListItem(
                             track = track,
                             isActive = track.id == viewModel.currentTrack.id,
                             coverUri = viewModel.getCoverUri(coverString = track.cover),
+                            listenInSec = latestListenInSec,
                             onClick = {
                                 viewModel.setMediaSourceWithService(track)
                                 onTrackSelected(track)

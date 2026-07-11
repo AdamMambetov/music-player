@@ -69,6 +69,7 @@ fun TrackListItem(
     track: TrackDocument,
     isActive: Boolean = false,
     coverUri: String = "",
+    listenInSec: Int = track.listenInSec,
     onClick: () -> Unit,
     onMenuClick: () -> Unit = {},
 ) {
@@ -78,18 +79,7 @@ fun TrackListItem(
         .map { it.aliases.getOrElse(0) { CreatorDocument.UNKNOWN } }
         .ifEmpty { listOf(CreatorDocument.UNKNOWN) }
         .joinToString(", ")
-    val listenText = if (track.listenInSec > 0) {
-        val days = track.listenInSec / 86400
-        val hours = (track.listenInSec % 86400) / 3600
-        val minutes = (track.listenInSec % 3600) / 60
-        val seconds = track.listenInSec % 60
-        buildString {
-            if (days > 0) append("${days}д ")
-            if (hours > 0) append("${hours}ч ")
-            if (minutes > 0) append("${minutes}м ")
-            if (seconds > 0 || isEmpty()) append("${seconds}с")
-        }.trim()
-    } else null
+    val listenText = formatListenTime(listenInSec).ifEmpty { null }
 
     Row(
         modifier = Modifier
@@ -186,4 +176,18 @@ fun formatTime(ms: Long): String {
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
     return "%d:%02d".format(minutes, seconds)
+}
+
+fun formatListenTime(seconds: Int): String {
+    if (seconds <= 0) return ""
+    val days = seconds / 86400
+    val hours = (seconds % 86400) / 3600
+    val minutes = (seconds % 3600) / 60
+    val secs = seconds % 60
+    return buildString {
+        if (days > 0) append("${days}д ")
+        if (hours > 0) append("${hours}ч ")
+        if (minutes > 0) append("${minutes}м ")
+        if (secs > 0 || isEmpty()) append("${secs}с")
+    }.trim()
 }

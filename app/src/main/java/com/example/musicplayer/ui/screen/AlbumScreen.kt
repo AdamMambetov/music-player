@@ -153,10 +153,12 @@ fun AlbumTracks(
         Box(modifier = Modifier.weight(1f)) {
             LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) {
                 items(items = currentAlbum.tracklist, key = { it.id }) { track ->
+                    val latestListenInSec = viewModel.allTracks.find { it.id == track.id }?.listenInSec ?: track.listenInSec
                     TrackListItem(
                         track = track,
                         isActive = track.id == viewModel.currentTrack.id,
                         coverUri = viewModel.getCoverUri(coverString = track.cover),
+                        listenInSec = latestListenInSec,
                         onClick = { onTrackSelected(track) })
                 }
             }

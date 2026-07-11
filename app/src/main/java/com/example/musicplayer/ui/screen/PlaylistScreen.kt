@@ -97,7 +97,8 @@ fun PlaylistTracks(
         Box(modifier = Modifier.weight(1f)) {
             LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) {
                 items(items = playlist.tracklist, key = { it.id }) { track ->
-                    TrackListItem(track = track, isActive = track.id == viewModel.currentTrack.id, coverUri = viewModel.getCoverUri(coverString = track.cover), onClick = { onTrackSelected(track) })
+                    val latestListenInSec = viewModel.allTracks.find { it.id == track.id }?.listenInSec ?: track.listenInSec
+                    TrackListItem(track = track, isActive = track.id == viewModel.currentTrack.id, coverUri = viewModel.getCoverUri(coverString = track.cover), listenInSec = latestListenInSec, onClick = { onTrackSelected(track) })
                 }
             }
             BottomScrollControls(listState, viewModel, playlist.tracklist)
