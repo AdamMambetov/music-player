@@ -166,15 +166,17 @@ fun MusicPlayerScreen(
                     .verticalScroll(rememberScrollState())
             ) {
                 Spacer(Modifier.height(12.dp))
+                var showAliasesDialog by remember { mutableStateOf(false) }
                 Box(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.align(Alignment.CenterStart)) {
+                    Column(modifier = Modifier.align(Alignment.CenterStart).padding(end = 80.dp)) {
                         Text(
                             name,
                             color = OnSurfacePrimary,
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.clickable { showAliasesDialog = true }
                         )
                         Text(
                             artists,
@@ -182,6 +184,37 @@ fun MusicPlayerScreen(
                             fontSize = 13.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    if (showAliasesDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showAliasesDialog = false },
+                            containerColor = SurfaceCard,
+                            title = {
+                                Text("Названия трека", color = OnSurfacePrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            },
+                            text = {
+                                val aliases = viewModel.currentTrack.aliases
+                                if (aliases.isEmpty()) {
+                                    Text("Нет названий", color = OnSurfaceSecondary, fontSize = 14.sp)
+                                } else {
+                                    Column {
+                                        aliases.forEachIndexed { index, alias ->
+                                            Text(
+                                                text = alias.ifEmpty { TrackDocument.UNKNOWN },
+                                                color = if (index == 0) Blue60 else OnSurfacePrimary,
+                                                fontSize = 14.sp,
+                                                modifier = Modifier.padding(vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            },
+                            confirmButton = {
+                                TextButton(onClick = { showAliasesDialog = false }) {
+                                    Text("Закрыть", color = Blue60, fontSize = 14.sp)
+                                }
+                            }
                         )
                     }
                     val rank = viewModel.allTracks.sortedByDescending { it.listenInSec }
@@ -347,20 +380,30 @@ fun MusicPlayerScreen(
                                         )
                                     }
                                 }
-                                var showListenTime by remember { mutableStateOf(false) }
-                                val listenText = if (showListenTime) {
-                                    val days = currentListen / 86400
-                                    val hours = (currentListen % 86400) / 3600
-                                    val minutes = (currentListen % 3600) / 60
-                                    val seconds = currentListen % 60
-                                    buildString {
-                                        if (days > 0) append("$days д ")
-                                        if (hours > 0) append("$hours ч ")
-                                        if (minutes > 0) append("$minutes мин ")
-                                        if (seconds > 0 || isEmpty()) append("$seconds сек")
-                                    }.trim()
-                                } else {
-                                    "$currentListen"
+                                var showListenTime by remember { mutableIntStateOf(0) }
+                                val listenText = when (showListenTime) {
+                                    1 -> {
+                                        val days = currentListen / 86400
+                                        val hours = (currentListen % 86400) / 3600
+                                        val minutes = (currentListen % 3600) / 60
+                                        val seconds = currentListen % 60
+                                        buildString {
+                                            if (days > 0) append("$days д ")
+                                            if (hours > 0) append("$hours ч ")
+                                            if (minutes > 0) append("$minutes мин ")
+                                            if (seconds > 0 || isEmpty()) append("$seconds сек")
+                                        }.trim()
+                                    }
+                                    2 -> {
+                                        val duration = viewModel.currentTrack.durationSec
+                                        if (duration > 0) {
+                                            val times = currentListen.toDouble() / duration
+                                            "x%.2f".format(times)
+                                        } else {
+                                            "$currentListen"
+                                        }
+                                    }
+                                    else -> "$currentListen"
                                 }
                                 Box(
                                     modifier = Modifier
@@ -374,7 +417,7 @@ fun MusicPlayerScreen(
                                                 SurfaceCard.copy(alpha = 0.8f),
                                                 RoundedCornerShape(8.dp)
                                             )
-                                            .clickable { showListenTime = !showListenTime }
+                                            .clickable { showListenTime = (showListenTime + 1) % 3 }
                                             .padding(horizontal = 8.dp, vertical = 5.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(5.dp)
