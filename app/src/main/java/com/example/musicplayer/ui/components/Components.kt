@@ -72,11 +72,24 @@ fun TrackListItem(
     onClick: () -> Unit,
     onMenuClick: () -> Unit = {},
 ) {
-    val name = track.aliases.getOrElse(0) { TrackDocument.UNKNOWN }.ifEmpty { TrackDocument.UNKNOWN }
+    val name =
+        track.aliases.getOrElse(0) { TrackDocument.UNKNOWN }.ifEmpty { TrackDocument.UNKNOWN }
     val artists = track.creators
         .map { it.aliases.getOrElse(0) { CreatorDocument.UNKNOWN } }
         .ifEmpty { listOf(CreatorDocument.UNKNOWN) }
         .joinToString(", ")
+    val listenText = if (track.listenInSec > 0) {
+        val days = track.listenInSec / 86400
+        val hours = (track.listenInSec % 86400) / 3600
+        val minutes = (track.listenInSec % 3600) / 60
+        val seconds = track.listenInSec % 60
+        buildString {
+            if (days > 0) append("${days}д ")
+            if (hours > 0) append("${hours}ч ")
+            if (minutes > 0) append("${minutes}м ")
+            if (seconds > 0 || isEmpty()) append("${seconds}с")
+        }.trim()
+    } else null
 
     Row(
         modifier = Modifier
@@ -84,7 +97,7 @@ fun TrackListItem(
             .clip(RoundedCornerShape(12.dp))
             .background(if (isActive) SurfaceCard else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(horizontal = 12.dp, vertical = 2.dp)
             .height(64.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -120,6 +133,15 @@ fun TrackListItem(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            if (listenText != null) {
+                Text(
+                    text = listenText,
+                    color = OnSurfaceSecondary,
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    lineHeight = 0.5.sp,
+                )
+            }
         }
         IconButton(onClick = onMenuClick) {
             Icon(
