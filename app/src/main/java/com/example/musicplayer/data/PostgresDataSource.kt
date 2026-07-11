@@ -53,7 +53,11 @@ class PostgresDataSource(
             Log.e(TAG, "SQL Error: ${e.message}")
             false
         } catch (e: Throwable) {
-            Log.e(TAG, "Failed to connect to PostgreSQL: ${e.javaClass.simpleName}: ${e.message}", e)
+            Log.e(
+                TAG,
+                "Failed to connect to PostgreSQL: ${e.javaClass.simpleName}: ${e.message}",
+                e
+            )
             false
         }
     }
@@ -97,7 +101,7 @@ class PostgresDataSource(
             }
 
             stmt.execute("LOAD 'age'")
-            stmt.execute("SET search_path = ag_catalog, \"\$user\", public")
+            stmt.execute("SET search_path = ag_catalog, \"$user\", public")
 
             val graphCheck = stmt.executeQuery(
                 "SELECT 1 FROM ag_catalog.ag_graph WHERE name = '$GRAPH_NAME'"
@@ -119,14 +123,14 @@ class PostgresDataSource(
     private fun ageQuery(cypher: String): ResultSet? {
         val stmt = connection?.createStatement() ?: return null
         return stmt.executeQuery(
-            "SELECT * FROM ag_catalog.cypher('$GRAPH_NAME', \$\$$cypher\$\$) AS (result agtype)"
+            $$"SELECT * FROM ag_catalog.cypher('$$GRAPH_NAME', $$$$cypher$$) AS (result agtype)"
         )
     }
 
     private fun ageExec(cypher: String) {
         val stmt = connection?.createStatement() ?: return
         stmt.executeQuery(
-            "SELECT * FROM ag_catalog.cypher('$GRAPH_NAME', \$\$$cypher\$\$) AS (result agtype)"
+            $$"SELECT * FROM ag_catalog.cypher('$$GRAPH_NAME', $$$$cypher$$) AS (result agtype)"
         )
         stmt.close()
     }
@@ -134,7 +138,7 @@ class PostgresDataSource(
     private fun ageExecWithReturn(cypher: String): ResultSet? {
         val stmt = connection?.createStatement() ?: return null
         return stmt.executeQuery(
-            "SELECT * FROM ag_catalog.cypher('$GRAPH_NAME', \$\$$cypher\$\$) AS (result agtype)"
+            $$"SELECT * FROM ag_catalog.cypher('$$GRAPH_NAME', $$$$cypher$$) AS (result agtype)"
         )
     }
 
@@ -145,7 +149,8 @@ class PostgresDataSource(
 
         stmt.executeUpdate("CREATE EXTENSION IF NOT EXISTS pg_trgm")
 
-        stmt.executeUpdate("""
+        stmt.executeUpdate(
+            """
             CREATE TABLE IF NOT EXISTS creators (
                 id TEXT PRIMARY KEY,
                 created BIGINT NOT NULL DEFAULT 0,
@@ -153,9 +158,11 @@ class PostgresDataSource(
                 file_name TEXT NOT NULL DEFAULT '',
                 listen_in_sec INT NOT NULL DEFAULT 0
             )
-        """)
+        """
+        )
 
-        stmt.executeUpdate("""
+        stmt.executeUpdate(
+            """
             CREATE TABLE IF NOT EXISTS tracks (
                 id TEXT PRIMARY KEY,
                 created BIGINT NOT NULL DEFAULT 0,
@@ -170,9 +177,11 @@ class PostgresDataSource(
                 listen_in_sec INT NOT NULL DEFAULT 0,
                 cover_of TEXT NOT NULL DEFAULT ''
             )
-        """)
+        """
+        )
 
-        stmt.executeUpdate("""
+        stmt.executeUpdate(
+            """
             CREATE TABLE IF NOT EXISTS albums (
                 id TEXT PRIMARY KEY,
                 created BIGINT NOT NULL DEFAULT 0,
@@ -181,72 +190,95 @@ class PostgresDataSource(
                 year BIGINT NOT NULL DEFAULT 0,
                 file_name TEXT NOT NULL DEFAULT ''
             )
-        """)
+        """
+        )
 
-        stmt.executeUpdate("""
+        stmt.executeUpdate(
+            """
             CREATE TABLE IF NOT EXISTS playlists (
                 id TEXT PRIMARY KEY,
                 created BIGINT NOT NULL DEFAULT 0,
                 aliases JSONB NOT NULL DEFAULT '[]',
                 file_name TEXT NOT NULL DEFAULT ''
             )
-        """)
+        """
+        )
 
-        stmt.executeUpdate("""
+        stmt.executeUpdate(
+            """
             CREATE TABLE IF NOT EXISTS track_creators (
                 track_id TEXT NOT NULL,
                 creator_id TEXT NOT NULL,
+                ord INT NOT NULL DEFAULT 0,
                 PRIMARY KEY (track_id, creator_id)
             )
-        """)
+        """
+        )
 
-        stmt.executeUpdate("""
+        stmt.executeUpdate(
+            """
             CREATE TABLE IF NOT EXISTS album_creators (
                 album_id TEXT NOT NULL,
                 creator_id TEXT NOT NULL,
+                ord INT NOT NULL DEFAULT 0,
                 PRIMARY KEY (album_id, creator_id)
             )
-        """)
+        """
+        )
 
-        stmt.executeUpdate("""
+        stmt.executeUpdate(
+            """
             CREATE TABLE IF NOT EXISTS album_tracks (
                 album_id TEXT NOT NULL,
                 track_id TEXT NOT NULL,
+                ord INT NOT NULL DEFAULT 0,
                 PRIMARY KEY (album_id, track_id)
             )
-        """)
+        """
+        )
 
-        stmt.executeUpdate("""
+        stmt.executeUpdate(
+            """
             CREATE TABLE IF NOT EXISTS playlist_tracks (
                 playlist_id TEXT NOT NULL,
                 track_id TEXT NOT NULL,
+                ord INT NOT NULL DEFAULT 0,
                 PRIMARY KEY (playlist_id, track_id)
             )
-        """)
+        """
+        )
 
-        stmt.executeUpdate("""
+        stmt.executeUpdate(
+            """
             CREATE TABLE IF NOT EXISTS track_gain (
                 track_id TEXT PRIMARY KEY,
                 gain_db REAL NOT NULL DEFAULT 0,
                 peak_level_db REAL NOT NULL DEFAULT -100,
                 analyzed_at BIGINT NOT NULL DEFAULT 0
             )
-        """)
+        """
+        )
 
-        stmt.executeUpdate("""
+        stmt.executeUpdate(
+            """
             CREATE TABLE IF NOT EXISTS search_index (
                 entity_id TEXT PRIMARY KEY,
                 entity_type TEXT NOT NULL,
                 name TEXT NOT NULL,
                 search_vector tsvector
             )
-        """)
-        stmt.executeUpdate("""
+        """
+        )
+        stmt.executeUpdate(
+            """
             CREATE INDEX IF NOT EXISTS idx_search_vector ON search_index USING GIN(search_vector)
-        """)
-        stmt.executeUpdate("""
+        """
+        )
+        stmt.executeUpdate(
+            """
             CREATE INDEX IF NOT EXISTS idx_search_name_trgm ON search_index USING GIN(name gin_trgm_ops)
-        """)
+        """
+        )
 
         stmt.close()
     }
@@ -255,14 +287,16 @@ class PostgresDataSource(
 
     private fun updateSearchIndex(entityId: String, entityType: String, names: List<String>) {
         val searchText = names.joinToString(" ")
-        val ps = connection?.prepareStatement("""
+        val ps = connection?.prepareStatement(
+            """
             INSERT INTO search_index (entity_id, entity_type, name, search_vector)
             VALUES (?, ?, ?, to_tsvector('simple', ?))
             ON CONFLICT (entity_id) DO UPDATE SET
                 entity_type = EXCLUDED.entity_type,
                 name = EXCLUDED.name,
                 search_vector = EXCLUDED.search_vector
-        """) ?: return
+        """
+        ) ?: return
         ps.setString(1, entityId)
         ps.setString(2, entityType)
         ps.setString(3, searchText)
@@ -272,7 +306,8 @@ class PostgresDataSource(
     }
 
     private fun removeSearchIndex(entityId: String) {
-        val ps = connection?.prepareStatement("DELETE FROM search_index WHERE entity_id = ?") ?: return
+        val ps =
+            connection?.prepareStatement("DELETE FROM search_index WHERE entity_id = ?") ?: return
         ps.setString(1, entityId)
         ps.executeUpdate()
         ps.close()
@@ -296,14 +331,16 @@ class PostgresDataSource(
     // ==================== Track Gain ====================
 
     fun putTrackGain(trackId: String, gainDb: Float, peakLevelDb: Float) {
-        val ps = connection?.prepareStatement("""
+        val ps = connection?.prepareStatement(
+            """
             INSERT INTO track_gain (track_id, gain_db, peak_level_db, analyzed_at)
             VALUES (?, ?, ?, ?)
             ON CONFLICT (track_id) DO UPDATE SET
                 gain_db = EXCLUDED.gain_db,
                 peak_level_db = EXCLUDED.peak_level_db,
                 analyzed_at = EXCLUDED.analyzed_at
-        """) ?: return
+        """
+        ) ?: return
         ps.setString(1, trackId)
         ps.setFloat(2, gainDb)
         ps.setFloat(3, peakLevelDb)
@@ -313,7 +350,9 @@ class PostgresDataSource(
     }
 
     fun getTrackGain(trackId: String): com.example.musicplayer.AnalysisResult? {
-        val ps = connection?.prepareStatement("SELECT gain_db, peak_level_db FROM track_gain WHERE track_id = ?") ?: return null
+        val ps =
+            connection?.prepareStatement("SELECT gain_db, peak_level_db FROM track_gain WHERE track_id = ?")
+                ?: return null
         ps.setString(1, trackId)
         val rs = ps.executeQuery()
         val result = if (rs.next()) {
@@ -329,7 +368,9 @@ class PostgresDataSource(
     }
 
     fun getAllTrackGains(): Map<String, com.example.musicplayer.AnalysisResult> {
-        val rs = connection?.createStatement()?.executeQuery("SELECT track_id, gain_db, peak_level_db FROM track_gain") ?: return emptyMap()
+        val rs = connection?.createStatement()
+            ?.executeQuery("SELECT track_id, gain_db, peak_level_db FROM track_gain")
+            ?: return emptyMap()
         val map = mutableMapOf<String, com.example.musicplayer.AnalysisResult>()
         while (rs.next()) {
             map[rs.getString("track_id")] = com.example.musicplayer.AnalysisResult(
@@ -344,7 +385,8 @@ class PostgresDataSource(
 
     fun getUnanalyzedTrackIds(allTrackIds: List<String>): List<String> {
         if (allTrackIds.isEmpty()) return emptyList()
-        val ps = connection?.prepareStatement("SELECT track_id FROM track_gain") ?: return allTrackIds
+        val ps =
+            connection?.prepareStatement("SELECT track_id FROM track_gain") ?: return allTrackIds
         val rs = ps.executeQuery()
         val analyzed = mutableSetOf<String>()
         while (rs.next()) {
@@ -358,7 +400,8 @@ class PostgresDataSource(
     // ==================== Creators ====================
 
     fun putCreators(creators: List<CreatorDocument>) {
-        val ps = connection?.prepareStatement("""
+        val ps = connection?.prepareStatement(
+            """
             INSERT INTO creators (id, created, aliases, file_name, listen_in_sec)
             VALUES (?, ?, ?::jsonb, ?, ?)
             ON CONFLICT (id) DO UPDATE SET
@@ -366,7 +409,8 @@ class PostgresDataSource(
                 aliases = EXCLUDED.aliases,
                 file_name = EXCLUDED.file_name,
                 listen_in_sec = EXCLUDED.listen_in_sec
-        """) ?: return
+        """
+        ) ?: return
         creators.forEach { creator ->
             try {
                 ps.setString(1, creator.id)
@@ -375,7 +419,10 @@ class PostgresDataSource(
                 ps.setString(4, creator.fileName)
                 ps.setInt(5, creator.listenInSec)
                 ps.executeUpdate()
-                updateSearchIndex(creator.id, "creator", creator.aliases.ifEmpty { listOf(creator.fileName) })
+                updateSearchIndex(
+                    creator.id,
+                    "creator",
+                    creator.aliases.ifEmpty { listOf(creator.fileName) })
             } catch (e: Exception) {
                 Log.e(TAG, "Error putting creator ${creator.id}: ${e.message}")
             }
@@ -384,7 +431,8 @@ class PostgresDataSource(
     }
 
     fun getAllCreators(): List<CreatorDocument> {
-        val rs = connection?.createStatement()?.executeQuery("SELECT * FROM creators") ?: return emptyList()
+        val rs = connection?.createStatement()?.executeQuery("SELECT * FROM creators")
+            ?: return emptyList()
         val list = mutableListOf<CreatorDocument>()
         while (rs.next()) {
             list.add(
@@ -420,14 +468,16 @@ class PostgresDataSource(
     }
 
     fun updateCreatorListenInSec(creatorId: String) {
-        val ps = connection?.prepareStatement("""
+        val ps = connection?.prepareStatement(
+            """
             UPDATE creators SET listen_in_sec = (
                 SELECT COALESCE(SUM(t.listen_in_sec), 0)
                 FROM tracks t
                 JOIN track_creators tc ON tc.track_id = t.id
                 WHERE tc.creator_id = ?
             ) WHERE id = ?
-        """) ?: return
+        """
+        ) ?: return
         ps.setString(1, creatorId)
         ps.setString(2, creatorId)
         ps.executeUpdate()
@@ -451,7 +501,8 @@ class PostgresDataSource(
     // ==================== Tracks ====================
 
     fun putTracks(tracks: List<TrackDocument>) {
-        val ps = connection?.prepareStatement("""
+        val ps = connection?.prepareStatement(
+            """
             INSERT INTO tracks (id, created, aliases, cover, year, album, number_in_album, related, source_file, file_name, listen_in_sec, cover_of)
             VALUES (?, ?, ?::jsonb, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?)
             ON CONFLICT (id) DO UPDATE SET
@@ -466,7 +517,8 @@ class PostgresDataSource(
                 file_name = EXCLUDED.file_name,
                 listen_in_sec = EXCLUDED.listen_in_sec,
                 cover_of = EXCLUDED.cover_of
-        """) ?: return
+        """
+        ) ?: return
         tracks.forEach { track ->
             try {
                 ps.setString(1, track.id)
@@ -482,7 +534,10 @@ class PostgresDataSource(
                 ps.setInt(11, track.listenInSec)
                 ps.setString(12, track.coverOf)
                 ps.executeUpdate()
-                updateSearchIndex(track.id, "track", track.aliases.ifEmpty { listOf(track.fileName) })
+                updateSearchIndex(
+                    track.id,
+                    "track",
+                    track.aliases.ifEmpty { listOf(track.fileName) })
             } catch (e: Exception) {
                 Log.e(TAG, "Error putting track ${track.id}: ${e.message}")
             }
@@ -491,7 +546,8 @@ class PostgresDataSource(
     }
 
     fun getAllTracks(): List<TrackDocument> {
-        val rs = connection?.createStatement()?.executeQuery("SELECT * FROM tracks") ?: return emptyList()
+        val rs = connection?.createStatement()?.executeQuery("SELECT * FROM tracks")
+            ?: return emptyList()
         val tracks = mutableListOf<TrackDocument>()
         while (rs.next()) {
             tracks.add(
@@ -516,7 +572,8 @@ class PostgresDataSource(
     }
 
     fun updateTrackListenInSec(track: TrackDocument) {
-        val ps = connection?.prepareStatement("UPDATE tracks SET listen_in_sec = ? WHERE id = ?") ?: return
+        val ps = connection?.prepareStatement("UPDATE tracks SET listen_in_sec = ? WHERE id = ?")
+            ?: return
         ps.setInt(1, track.listenInSec)
         ps.setString(2, track.id)
         ps.executeUpdate()
@@ -546,10 +603,12 @@ class PostgresDataSource(
             del?.executeUpdate()
             del?.close()
 
-            val ins = connection?.prepareStatement("INSERT INTO track_creators (track_id, creator_id) VALUES (?, ?)")
-            creatorIds.forEach { creatorId ->
+            val ins =
+                connection?.prepareStatement("INSERT INTO track_creators (track_id, creator_id, ord) VALUES (?, ?, ?)")
+            creatorIds.forEachIndexed { index, creatorId ->
                 ins?.setString(1, trackId)
                 ins?.setString(2, creatorId)
+                ins?.setInt(3, index)
                 ins?.executeUpdate()
             }
             ins?.close()
@@ -559,7 +618,9 @@ class PostgresDataSource(
     }
 
     fun getTrackCreators(trackId: String): List<String> {
-        val ps = connection?.prepareStatement("SELECT creator_id FROM track_creators WHERE track_id = ?") ?: return emptyList()
+        val ps =
+            connection?.prepareStatement("SELECT creator_id FROM track_creators WHERE track_id = ? ORDER BY ord")
+                ?: return emptyList()
         ps.setString(1, trackId)
         val rs = ps.executeQuery()
         val ids = mutableListOf<String>()
@@ -574,7 +635,8 @@ class PostgresDataSource(
     // ==================== Albums ====================
 
     fun putAlbums(albums: List<AlbumDocument>) {
-        val ps = connection?.prepareStatement("""
+        val ps = connection?.prepareStatement(
+            """
             INSERT INTO albums (id, created, aliases, cover, year, file_name)
             VALUES (?, ?, ?::jsonb, ?, ?, ?)
             ON CONFLICT (id) DO UPDATE SET
@@ -583,7 +645,8 @@ class PostgresDataSource(
                 cover = EXCLUDED.cover,
                 year = EXCLUDED.year,
                 file_name = EXCLUDED.file_name
-        """) ?: return
+        """
+        ) ?: return
         albums.forEach { album ->
             try {
                 ps.setString(1, album.id)
@@ -593,7 +656,10 @@ class PostgresDataSource(
                 ps.setLong(5, album.year)
                 ps.setString(6, album.fileName)
                 ps.executeUpdate()
-                updateSearchIndex(album.id, "album", album.aliases.ifEmpty { listOf(album.fileName) })
+                updateSearchIndex(
+                    album.id,
+                    "album",
+                    album.aliases.ifEmpty { listOf(album.fileName) })
             } catch (e: Exception) {
                 Log.e(TAG, "Error putting album ${album.id}: ${e.message}")
             }
@@ -602,7 +668,8 @@ class PostgresDataSource(
     }
 
     fun getAllAlbums(): List<AlbumDocument> {
-        val rs = connection?.createStatement()?.executeQuery("SELECT * FROM albums") ?: return emptyList()
+        val rs = connection?.createStatement()?.executeQuery("SELECT * FROM albums")
+            ?: return emptyList()
         val albums = mutableListOf<AlbumDocument>()
         while (rs.next()) {
             albums.add(
@@ -643,10 +710,12 @@ class PostgresDataSource(
             del?.executeUpdate()
             del?.close()
 
-            val ins = connection?.prepareStatement("INSERT INTO album_creators (album_id, creator_id) VALUES (?, ?)")
-            creatorIds.forEach { creatorId ->
+            val ins =
+                connection?.prepareStatement("INSERT INTO album_creators (album_id, creator_id, ord) VALUES (?, ?, ?)")
+            creatorIds.forEachIndexed { index, creatorId ->
                 ins?.setString(1, albumId)
                 ins?.setString(2, creatorId)
+                ins?.setInt(3, index)
                 ins?.executeUpdate()
             }
             ins?.close()
@@ -662,10 +731,12 @@ class PostgresDataSource(
             del?.executeUpdate()
             del?.close()
 
-            val ins = connection?.prepareStatement("INSERT INTO album_tracks (album_id, track_id) VALUES (?, ?)")
-            trackIds.forEach { trackId ->
+            val ins =
+                connection?.prepareStatement("INSERT INTO album_tracks (album_id, track_id, ord) VALUES (?, ?, ?)")
+            trackIds.forEachIndexed { index, trackId ->
                 ins?.setString(1, albumId)
                 ins?.setString(2, trackId)
+                ins?.setInt(3, index)
                 ins?.executeUpdate()
             }
             ins?.close()
@@ -675,7 +746,9 @@ class PostgresDataSource(
     }
 
     fun getAlbumCreators(albumId: String): List<String> {
-        val ps = connection?.prepareStatement("SELECT creator_id FROM album_creators WHERE album_id = ?") ?: return emptyList()
+        val ps =
+            connection?.prepareStatement("SELECT creator_id FROM album_creators WHERE album_id = ? ORDER BY ord")
+                ?: return emptyList()
         ps.setString(1, albumId)
         val rs = ps.executeQuery()
         val ids = mutableListOf<String>()
@@ -688,7 +761,9 @@ class PostgresDataSource(
     }
 
     fun getAlbumTracks(albumId: String): List<String> {
-        val ps = connection?.prepareStatement("SELECT track_id FROM album_tracks WHERE album_id = ?") ?: return emptyList()
+        val ps =
+            connection?.prepareStatement("SELECT track_id FROM album_tracks WHERE album_id = ? ORDER BY ord")
+                ?: return emptyList()
         ps.setString(1, albumId)
         val rs = ps.executeQuery()
         val ids = mutableListOf<String>()
@@ -703,14 +778,16 @@ class PostgresDataSource(
     // ==================== Playlists ====================
 
     fun putPlaylists(playlists: List<PlaylistDocument>) {
-        val ps = connection?.prepareStatement("""
+        val ps = connection?.prepareStatement(
+            """
             INSERT INTO playlists (id, created, aliases, file_name)
             VALUES (?, ?, ?::jsonb, ?)
             ON CONFLICT (id) DO UPDATE SET
                 created = EXCLUDED.created,
                 aliases = EXCLUDED.aliases,
                 file_name = EXCLUDED.file_name
-        """) ?: return
+        """
+        ) ?: return
         playlists.forEach { playlist ->
             try {
                 ps.setString(1, playlist.id)
@@ -718,7 +795,10 @@ class PostgresDataSource(
                 ps.setString(3, listToJson(playlist.aliases))
                 ps.setString(4, playlist.fileName)
                 ps.executeUpdate()
-                updateSearchIndex(playlist.id, "playlist", playlist.aliases.ifEmpty { listOf(playlist.fileName) })
+                updateSearchIndex(
+                    playlist.id,
+                    "playlist",
+                    playlist.aliases.ifEmpty { listOf(playlist.fileName) })
             } catch (e: Exception) {
                 Log.e(TAG, "Error putting playlist ${playlist.id}: ${e.message}")
             }
@@ -727,7 +807,8 @@ class PostgresDataSource(
     }
 
     fun getAllPlaylists(): List<PlaylistDocument> {
-        val rs = connection?.createStatement()?.executeQuery("SELECT * FROM playlists") ?: return emptyList()
+        val rs = connection?.createStatement()?.executeQuery("SELECT * FROM playlists")
+            ?: return emptyList()
         val playlists = mutableListOf<PlaylistDocument>()
         while (rs.next()) {
             playlists.add(
@@ -745,15 +826,18 @@ class PostgresDataSource(
 
     fun putPlaylistTracks(playlistId: String, trackIds: List<String>) {
         try {
-            val del = connection?.prepareStatement("DELETE FROM playlist_tracks WHERE playlist_id = ?")
+            val del =
+                connection?.prepareStatement("DELETE FROM playlist_tracks WHERE playlist_id = ?")
             del?.setString(1, playlistId)
             del?.executeUpdate()
             del?.close()
 
-            val ins = connection?.prepareStatement("INSERT INTO playlist_tracks (playlist_id, track_id) VALUES (?, ?)")
-            trackIds.forEach { trackId ->
+            val ins =
+                connection?.prepareStatement("INSERT INTO playlist_tracks (playlist_id, track_id, ord) VALUES (?, ?, ?)")
+            trackIds.forEachIndexed { index, trackId ->
                 ins?.setString(1, playlistId)
                 ins?.setString(2, trackId)
+                ins?.setInt(3, index)
                 ins?.executeUpdate()
             }
             ins?.close()
@@ -763,7 +847,9 @@ class PostgresDataSource(
     }
 
     fun getPlaylistTracks(playlistId: String): List<String> {
-        val ps = connection?.prepareStatement("SELECT track_id FROM playlist_tracks WHERE playlist_id = ?") ?: return emptyList()
+        val ps =
+            connection?.prepareStatement("SELECT track_id FROM playlist_tracks WHERE playlist_id = ? ORDER BY ord")
+                ?: return emptyList()
         ps.setString(1, playlistId)
         val rs = ps.executeQuery()
         val ids = mutableListOf<String>()
@@ -792,14 +878,16 @@ class PostgresDataSource(
     // ==================== Full-text search ====================
 
     fun search(query: String, limit: Int = 20): List<SearchResult> {
-        val ps = connection?.prepareStatement("""
+        val ps = connection?.prepareStatement(
+            """
             SELECT entity_id, entity_type, name,
                    similarity(name, ?) AS rank
             FROM search_index
             WHERE name ILIKE ?
             ORDER BY rank DESC
             LIMIT ?
-        """) ?: return emptyList()
+        """
+        ) ?: return emptyList()
         ps.setString(1, query)
         ps.setString(2, "%$query%")
         ps.setInt(3, limit)
