@@ -536,6 +536,16 @@ class MusicPlayerViewModel(
         return allTracks.filter { track -> track.creators.any { it.id == creator.id } }
     }
 
+    fun getRelatedTracks(track: TrackDocument): List<TrackDocument> {
+        return track.related.mapNotNull { fileName ->
+            allTracks.find { it.fileName == fileName }
+        }
+    }
+
+    fun getCoverOfTracks(track: TrackDocument): List<TrackDocument> {
+        return allTracks.filter { it.coverOf == track.fileName }
+    }
+
     fun addToFavorites(track: TrackDocument) {
         if (isFavorite)
             return

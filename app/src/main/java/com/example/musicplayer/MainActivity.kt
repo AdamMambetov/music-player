@@ -36,6 +36,7 @@ import com.example.musicplayer.ui.screen.CreatorTracksScreen
 import com.example.musicplayer.ui.screen.MusicPlayerScreen
 import com.example.musicplayer.ui.screen.PlaylistTracks
 import com.example.musicplayer.ui.screen.QueueTracksScreen
+import com.example.musicplayer.ui.screen.RelatedTracksScreen
 import com.example.musicplayer.ui.screen.SearchScreen
 import com.example.musicplayer.ui.screen.SettingsScreen
 import com.example.musicplayer.ui.screen.TrackCreatorsScreen
@@ -151,6 +152,13 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
                 viewModel.currentCreator = creator
                 screen = "creator"
             }
+        )
+
+        "related" -> RelatedTracksScreen(
+            modifier = Modifier.fillMaxSize(),
+            viewModel = viewModel,
+            onBack = { screen = "home" },
+            onTrackSelected = { screen = "home" }
         )
 
         "settings" -> SettingsScreen(

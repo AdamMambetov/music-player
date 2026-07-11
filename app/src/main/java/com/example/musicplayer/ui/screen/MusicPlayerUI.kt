@@ -659,6 +659,10 @@ fun MusicPlayerScreen(
                     icon = R.drawable.creators,
                     label = "Артист",
                     onClick = { onMoveTo("trackCreators") })
+                BottomTabItem(
+                    icon = R.drawable.link,
+                    label = "Связанное",
+                    onClick = { onMoveTo("related") })
             }
         }
     }
@@ -1185,6 +1189,152 @@ fun CreatorTracksScreen(
                 }
             }
             BottomScrollControls(listState, viewModel, tracks)
+        }
+        BottomPlayerMini(viewModel)
+    }
+}
+
+// --- Related tracks screen ---
+@Composable
+fun RelatedTracksScreen(
+    modifier: Modifier = Modifier,
+    viewModel: MusicPlayerViewModel,
+    onBack: () -> Unit = {},
+    onTrackSelected: (TrackDocument) -> Unit = {}
+) {
+    val track = viewModel.currentTrack
+    val relatedTracks = viewModel.getRelatedTracks(track)
+    val covers = viewModel.getCoverOfTracks(track)
+    val coverOfTrack = if (track.coverOf.isNotEmpty()) {
+        val baseName = track.coverOf.removeSurrounding("[[", "]]")
+        viewModel.allTracks.find { it.fileName == baseName }
+    } else null
+    val listState = rememberLazyListState()
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .systemBarsPadding()
+            .background(SurfaceDark)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { onBack() }) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = OnSurfacePrimary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            Text(
+                "Связанное",
+                color = OnSurfacePrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Box(modifier = Modifier.weight(1f)) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                state = listState
+            ) {
+                if (relatedTracks.isNotEmpty()) {
+                    stickyHeader(key = "header_related") {
+                        Text(
+                            text = "Похожее (${relatedTracks.size})",
+                            color = Blue60,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(SurfaceDark)
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
+                    }
+                    items(items = relatedTracks, key = { "related_${it.id}" }) { relatedTrack ->
+                        TrackListItem(
+                            track = relatedTrack,
+                            isActive = relatedTrack.id == viewModel.currentTrack.id,
+                            coverUri = viewModel.getCoverUri(coverString = relatedTrack.cover),
+                            onClick = {
+                                viewModel.setQueueFromSource(relatedTracks, relatedTrack)
+                                viewModel.setMediaSourceWithService(relatedTrack)
+                                onTrackSelected(relatedTrack)
+                            }
+                        )
+                    }
+                }
+                if (coverOfTrack != null) {
+                    stickyHeader(key = "header_coverof") {
+                        Text(
+                            text = "Кавер на",
+                            color = Blue60,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(SurfaceDark)
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
+                    }
+                    item(key = "coverof_${coverOfTrack.id}") {
+                        TrackListItem(
+                            track = coverOfTrack,
+                            isActive = coverOfTrack.id == viewModel.currentTrack.id,
+                            coverUri = viewModel.getCoverUri(coverString = coverOfTrack.cover),
+                            onClick = {
+                                viewModel.setMediaSourceWithService(coverOfTrack)
+                                onTrackSelected(coverOfTrack)
+                            }
+                        )
+                    }
+                }
+                if (covers.isNotEmpty()) {
+                    stickyHeader(key = "header_covers") {
+                        Text(
+                            text = "Кавера (${covers.size})",
+                            color = Blue60,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(SurfaceDark)
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
+                    }
+                    items(items = covers, key = { "cover_${it.id}" }) { coverOfTrack ->
+                        TrackListItem(
+                            track = coverOfTrack,
+                            isActive = coverOfTrack.id == viewModel.currentTrack.id,
+                            coverUri = viewModel.getCoverUri(coverString = coverOfTrack.cover),
+                            onClick = {
+                                viewModel.setQueueFromSource(covers, coverOfTrack)
+                                viewModel.setMediaSourceWithService(coverOfTrack)
+                                onTrackSelected(coverOfTrack)
+                            }
+                        )
+                    }
+                }
+                if (relatedTracks.isEmpty() && coverOfTrack == null && covers.isEmpty()) {
+                    item {
+                        Text(
+                            text = "Нет связанных треков",
+                            color = OnSurfaceSecondary,
+                            fontSize = 14.sp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+            BottomScrollControls(listState, viewModel, relatedTracks + listOfNotNull(coverOfTrack) + covers)
         }
         BottomPlayerMini(viewModel)
     }
