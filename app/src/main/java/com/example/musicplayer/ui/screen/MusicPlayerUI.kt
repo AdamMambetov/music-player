@@ -973,18 +973,49 @@ fun AllTracksScreen(
             }
         }
         Box(modifier = Modifier.weight(1f)) {
+            val showYearHeaders = sortMode == 3
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 state = listState
             ) {
-                items(
-                    items = sortedTracks,
-                    key = { it.id }) { track ->
-                    TrackListItem(
-                        track = track,
-                        isActive = track.id == viewModel.currentTrack.id,
-                        coverUri = viewModel.getCoverUri(coverString = track.cover),
-                        onClick = { onTrackSelected(track) })
+                if (showYearHeaders) {
+                    var lastYear = ""
+                    sortedTracks.forEach { track ->
+                        val year = if (track.year > 0) "${track.year}" else "Без года"
+                        if (year != lastYear) {
+                            stickyHeader(key = "header_$year") {
+                                Text(
+                                    text = year,
+                                    color = Blue60,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(SurfaceDark)
+                                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                                )
+                            }
+                            lastYear = year
+                        }
+                        item(key = track.id) {
+                            TrackListItem(
+                                track = track,
+                                isActive = track.id == viewModel.currentTrack.id,
+                                coverUri = viewModel.getCoverUri(coverString = track.cover),
+                                onClick = { onTrackSelected(track) })
+                        }
+                    }
+                } else {
+                    items(
+                        items = sortedTracks,
+                        key = { it.id }
+                    ) { track ->
+                        TrackListItem(
+                            track = track,
+                            isActive = track.id == viewModel.currentTrack.id,
+                            coverUri = viewModel.getCoverUri(coverString = track.cover),
+                            onClick = { onTrackSelected(track) })
+                    }
                 }
             }
             BottomScrollControls(listState, viewModel, sortedTracks)
@@ -1225,7 +1256,7 @@ fun BottomScrollControls(
                 )
             }
             IconButton(
-                onClick = { coroutineScope.launch { listState.scrollToItem(trackList.lastIndex) } },
+                onClick = { coroutineScope.launch { listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1) } },
                 modifier = Modifier.background(color = SurfaceCard, shape = RoundedCornerShape(50))
             ) {
                 Icon(
