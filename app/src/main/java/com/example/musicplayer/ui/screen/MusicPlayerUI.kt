@@ -35,6 +35,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
@@ -44,6 +47,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -835,6 +839,17 @@ fun AllTracksScreen(
     onTrackSelected: (TrackDocument) -> Unit = {}
 ) {
     val listState = rememberLazyListState()
+    val sortMode = viewModel.tracksSortMode
+    val sortAscending = viewModel.tracksSortAscending
+    val sortedTracks = viewModel.sortedAllTracks
+    var showSortMenu by remember { mutableStateOf(false) }
+    val sortLabels = listOf(
+        "По имени",
+        "По дате",
+        "По прослушиваниям",
+        "По годам",
+    )
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -859,8 +874,60 @@ fun AllTracksScreen(
                 "Треки (${viewModel.allTracks.size})",
                 color = OnSurfacePrimary,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
             )
+            Box {
+                IconButton(onClick = { showSortMenu = true }) {
+                    Icon(
+                        painterResource(R.drawable.sort),
+                        contentDescription = "Sort",
+                        tint = OnSurfaceSecondary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                DropdownMenu(
+                    expanded = showSortMenu,
+                    onDismissRequest = { showSortMenu = false }
+                ) {
+                    sortLabels.forEachIndexed { index, label ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    label,
+                                    color = if (sortMode == index) Blue60 else OnSurfacePrimary,
+                                    fontSize = 14.sp
+                                )
+                            },
+                            onClick = {
+                                viewModel.tracksSortMode = index
+                            }
+                        )
+                    }
+                    HorizontalDivider(color = DividerColor)
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "По возрастанию",
+                                    color = OnSurfacePrimary,
+                                    fontSize = 14.sp
+                                )
+                                Checkbox(
+                                    checked = sortAscending,
+                                    onCheckedChange = { viewModel.tracksSortAscending = it },
+                                    colors = CheckboxDefaults.colors(checkedColor = Blue60)
+                                )
+                            }
+                        },
+                        onClick = { viewModel.tracksSortAscending = !sortAscending }
+                    )
+                }
+            }
         }
         Box(modifier = Modifier.weight(1f)) {
             LazyColumn(
@@ -868,7 +935,7 @@ fun AllTracksScreen(
                 state = listState
             ) {
                 items(
-                    items = viewModel.allTracks,
+                    items = sortedTracks,
                     key = { it.id }) { track ->
                     TrackListItem(
                         track = track,
@@ -877,7 +944,7 @@ fun AllTracksScreen(
                         onClick = { onTrackSelected(track) })
                 }
             }
-            BottomScrollControls(listState, viewModel, viewModel.allTracks)
+            BottomScrollControls(listState, viewModel, sortedTracks)
         }
         BottomPlayerMini(viewModel)
     }

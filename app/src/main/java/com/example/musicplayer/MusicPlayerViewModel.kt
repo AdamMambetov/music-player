@@ -105,6 +105,21 @@ class MusicPlayerViewModel(
     var musicState by mutableStateOf(TrackListState())
         private set
 
+    var tracksSortMode by mutableIntStateOf(0)
+    var tracksSortAscending by mutableStateOf(true)
+
+    val sortedAllTracks: List<TrackDocument>
+        get() {
+            val base = when (tracksSortMode) {
+                0 -> allTracks.sortedBy { t -> t.aliases.getOrElse(0) { t.fileName }.lowercase() }
+                1 -> allTracks.sortedBy { it.created }
+                2 -> allTracks.sortedBy { it.listenInSec }
+                3 -> allTracks.sortedBy { it.year }
+                else -> allTracks
+            }
+            return if (tracksSortAscending) base else base.reversed()
+        }
+
     private var coverUris = mutableMapOf<String, String>()
 
     private var playerTimer: CountDownTimer? = null
@@ -488,8 +503,8 @@ class MusicPlayerViewModel(
     }
 
     fun setQueueToDefault() {
-        currentQueue = allTracks.toMutableList()
-        currentQueueSourceTracks = allTracks
+        currentQueue = sortedAllTracks.toMutableList()
+        currentQueueSourceTracks = sortedAllTracks
     }
 
     fun setQueueFromSource(sourceTracks: List<TrackDocument>, track: TrackDocument) {

@@ -108,7 +108,7 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
             viewModel = viewModel,
             onBack = { screen = "home" },
             onTrackSelected = { track ->
-                viewModel.setQueueFromSource(viewModel.allTracks, track)
+                viewModel.setQueueFromSource(viewModel.sortedAllTracks, track)
                 viewModel.setMediaSourceWithService(track)
             }
         )
