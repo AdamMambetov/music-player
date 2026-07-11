@@ -29,7 +29,7 @@ class ReplayGain {
                     break
                 }
             }
-            require(audioTrackIndex >= 0 && format != null)
+            require(audioTrackIndex >= 0 && format != null) { "No audio track found in $uri" }
 
             extractor.selectTrack(audioTrackIndex)
 

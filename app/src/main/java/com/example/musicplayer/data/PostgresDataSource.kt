@@ -176,7 +176,8 @@ class PostgresDataSource(
                 source_file TEXT NOT NULL DEFAULT '',
                 file_name TEXT NOT NULL DEFAULT '',
                 listen_in_sec INT NOT NULL DEFAULT 0,
-                cover_of TEXT NOT NULL DEFAULT ''
+                cover_of TEXT NOT NULL DEFAULT '',
+                duration_sec BIGINT NOT NULL DEFAULT 0
             )
         """
         )
@@ -504,8 +505,8 @@ class PostgresDataSource(
     fun putTracks(tracks: List<TrackDocument>) {
         val ps = connection?.prepareStatement(
             """
-            INSERT INTO tracks (id, created, aliases, cover, year, album, number_in_album, related, source_file, file_name, listen_in_sec, cover_of)
-            VALUES (?, ?, ?::jsonb, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?)
+            INSERT INTO tracks (id, created, aliases, cover, year, album, number_in_album, related, source_file, file_name, listen_in_sec, cover_of, duration_sec)
+            VALUES (?, ?, ?::jsonb, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?)
             ON CONFLICT (id) DO UPDATE SET
                 created = EXCLUDED.created,
                 aliases = EXCLUDED.aliases,
@@ -517,7 +518,8 @@ class PostgresDataSource(
                 source_file = EXCLUDED.source_file,
                 file_name = EXCLUDED.file_name,
                 listen_in_sec = EXCLUDED.listen_in_sec,
-                cover_of = EXCLUDED.cover_of
+                cover_of = EXCLUDED.cover_of,
+                duration_sec = EXCLUDED.duration_sec
         """
         ) ?: return
         tracks.forEach { track ->
@@ -534,6 +536,7 @@ class PostgresDataSource(
                 ps.setString(10, track.fileName)
                 ps.setInt(11, track.listenInSec)
                 ps.setString(12, track.coverOf)
+                ps.setLong(13, track.durationSec)
                 ps.executeUpdate()
                 updateSearchIndex(
                     track.id,
@@ -564,7 +567,8 @@ class PostgresDataSource(
                     sourceFile = rs.getString("source_file"),
                     fileName = rs.getString("file_name"),
                     listenInSec = rs.getInt("listen_in_sec"),
-                    coverOf = rs.getString("cover_of")
+                    coverOf = rs.getString("cover_of"),
+                    durationSec = rs.getLong("duration_sec")
                 )
             )
         }

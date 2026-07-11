@@ -27,6 +27,7 @@ data class TrackDocument(
     var listenInSec: Int = 0,
     var sourceUri: String = "",
     val coverOf: String = "",
+    val durationSec: Long = 0L,
 ) {
     override fun equals(other: Any?): Boolean {
         if (other !is TrackDocument) return false

@@ -108,7 +108,7 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
             viewModel = viewModel,
             onBack = { screen = "home" },
             onTrackSelected = { track ->
-                viewModel.setQueueToDefault()
+                viewModel.setQueueFromSource(viewModel.allTracks, track)
                 viewModel.setMediaSourceWithService(track)
             }
         )
@@ -118,7 +118,6 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
             viewModel = viewModel,
             onBack = { screen = "home" },
             onTrackSelected = { track ->
-                viewModel.setQueueToDefault()
                 viewModel.setMediaSourceWithService(track)
             }
         )
@@ -138,8 +137,7 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
             modifier = Modifier.fillMaxSize(),
             viewModel = viewModel,
             onTrackSelected = { track ->
-                viewModel.currentQueue = viewModel.currentAlbum.tracklist.toMutableList()
-                viewModel.currentQueueIndex = viewModel.currentAlbum.tracklist.indexOf(track)
+                viewModel.setQueueFromSource(viewModel.currentAlbum.tracklist, track)
                 viewModel.setMediaSourceWithService(track)
             },
             onBack = { screen = "albums" }
@@ -192,8 +190,7 @@ fun MusicPlayerApp(viewModel: MusicPlayerViewModel) {
             modifier = Modifier.fillMaxSize(),
             viewModel = viewModel,
             onTrackSelected = { track ->
-                viewModel.currentQueue = viewModel.currentPlaylist.tracklist.toMutableList()
-                viewModel.currentQueueIndex = viewModel.currentPlaylist.tracklist.indexOf(track)
+                viewModel.setQueueFromSource(viewModel.currentPlaylist.tracklist, track)
                 viewModel.setMediaSourceWithService(track)
             },
             onBack = { screen = "playlists" }

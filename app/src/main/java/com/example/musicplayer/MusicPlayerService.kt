@@ -76,21 +76,13 @@ class MusicPlayerService : MediaSessionService() {
         kotlinx.coroutines.withContext(
             Dispatchers.IO
         ) {
+            if (uri.toString().isEmpty()) return@withContext AnalysisResult(trackGainDb = 0f)
             if (trackId != null) {
                 val cached =
                     com.example.musicplayer.data.PostgresDataSource.instance?.getTrackGain(trackId)
                 if (cached != null) return@withContext cached
             }
-            val result = replayGain.analyzeTrack(this@MusicPlayerService, uri)
-            if (trackId != null) {
-                val gainDb = result.trackGainDb ?: 0f
-                com.example.musicplayer.data.PostgresDataSource.instance?.putTrackGain(
-                    trackId,
-                    gainDb,
-                    result.peakLevelDb
-                )
-            }
-            result
+            AnalysisResult(trackGainDb = 0f)
         }
 
     companion object {

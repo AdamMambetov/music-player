@@ -6,7 +6,9 @@ import android.net.Uri
 import android.provider.MediaStore
 
 class MediaReader(val context: Context) {
-    fun scanAudio(uri: Uri): Map<String, String> {
+    data class AudioInfo(val uri: String, val durationMs: Long)
+
+    fun scanAudio(uri: Uri): Map<String, AudioInfo> {
         if (uri.toString().isEmpty())
             return emptyMap()
 
@@ -17,6 +19,7 @@ class MediaReader(val context: Context) {
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.RELATIVE_PATH,
             MediaStore.Audio.Media.DISPLAY_NAME,
+            MediaStore.Audio.Media.DURATION,
         )
         val selectionPath = uri.lastPathSegment!!.substringAfter(delimiter = ":") + "/"
         val selection = "${MediaStore.Audio.Media.RELATIVE_PATH} = ?"
@@ -24,7 +27,7 @@ class MediaReader(val context: Context) {
             selectionPath,
         )
 
-        val result = mutableMapOf<String, String>()
+        val result = mutableMapOf<String, AudioInfo>()
         context.contentResolver.query(
             queryUri,
             projection,
@@ -34,14 +37,16 @@ class MediaReader(val context: Context) {
         )?.use { cursor ->
             val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
             val displayNameColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+            val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idColumn)
                 val fileName = cursor.getString(displayNameColumn)
+                val durationMs = cursor.getLong(durationColumn)
                 val contentUri: Uri = ContentUris.withAppendedId(
                     MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                     id,
                 )
-                result.put(fileName, contentUri.toString())
+                result.put(fileName, AudioInfo(contentUri.toString(), durationMs))
             }
         }
         return result

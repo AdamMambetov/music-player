@@ -59,11 +59,11 @@ class MusicRepository(
             }
             val creatorMap = creators.associateBy { it.id }
             val resolved = pgTracks.map { track ->
-                val sourceUri = sourceFileUris[track.sourceFile]
+                val audioInfo = sourceFileUris[track.sourceFile]
                 val trackCreators = trackCreatorMap[track.id]
                     ?.mapNotNull { creatorMap[it] }
                     ?: emptyList()
-                val withUri = if (sourceUri != null) track.copy(sourceUri = sourceUri) else track
+                val withUri = if (audioInfo != null) track.copy(sourceUri = audioInfo.uri, durationSec = audioInfo.durationMs / 1000) else track
                 withUri.copy(creators = trackCreators)
             }
             return@withContext resolved
@@ -72,8 +72,8 @@ class MusicRepository(
         val mdTracks = markdownReader.scanTracks(creators)
             .sortedByDescending { it.created }
             .map { track ->
-                val sourceUri = sourceFileUris[track.sourceFile]
-                track.copy(sourceUri = sourceUri ?: "")
+                val audioInfo = sourceFileUris[track.sourceFile]
+                track.copy(sourceUri = audioInfo?.uri ?: "", durationSec = (audioInfo?.durationMs ?: 0L) / 1000)
             }
 
         if (mdTracks.isNotEmpty()) {
@@ -188,10 +188,10 @@ class MusicRepository(
         val tracksById = postgres.getAllTracks().associateBy { it.id }
         trackIds.mapNotNull { id ->
             tracksById[id]?.let { track ->
-                val sourceUri = sourceFileUris[track.sourceFile]
+                val audioInfo = sourceFileUris[track.sourceFile]
                 val trackCreators = postgres.getTrackCreators(track.id)
                     .mapNotNull { creatorMap[it] }
-                val withUri = if (sourceUri != null) track.copy(sourceUri = sourceUri) else track
+                val withUri = if (audioInfo != null) track.copy(sourceUri = audioInfo.uri, durationSec = audioInfo.durationMs / 1000) else track
                 withUri.copy(creators = trackCreators)
             }
         }
@@ -211,8 +211,21 @@ class MusicRepository(
         val albumIds = results.filter { it.entityType == "album" }.map { it.entityId }.distinct()
         if (albumIds.isEmpty()) return@withContext emptyList()
 
+        val allCreators = postgres.getAllCreators()
+        val creatorMap = allCreators.associateBy { it.id }
+        val allTracks = postgres.getAllTracks()
+        val trackMap = allTracks.associateBy { it.id }
         val albumsById = postgres.getAllAlbums().associateBy { it.id }
-        albumIds.mapNotNull { albumsById[it] }
+        albumIds.mapNotNull { id ->
+            albumsById[id]?.let { album ->
+                val albumCreatorIds = postgres.getAlbumCreators(album.id)
+                val albumTrackIds = postgres.getAlbumTracks(album.id)
+                album.copy(
+                    creators = albumCreatorIds.mapNotNull { creatorMap[it] },
+                    tracklist = albumTrackIds.mapNotNull { trackMap[it] }
+                )
+            }
+        }
     }
 
     suspend fun searchPlaylists(query: String): List<PlaylistDocument> = withContext(Dispatchers.IO) {
@@ -278,8 +291,8 @@ class MusicRepository(
         val tracks = markdownReader.scanTracks(creators)
             .sortedByDescending { it.created }
             .map { track ->
-                val sourceUri = sourceFileUris[track.sourceFile]
-                track.copy(sourceUri = sourceUri ?: "")
+                val audioInfo = sourceFileUris[track.sourceFile]
+                track.copy(sourceUri = audioInfo?.uri ?: "", durationSec = (audioInfo?.durationMs ?: 0L) / 1000)
             }
         postgres.putTracks(tracks)
         tracks.forEach { track ->

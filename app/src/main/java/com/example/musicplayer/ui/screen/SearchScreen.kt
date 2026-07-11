@@ -191,9 +191,8 @@ fun SearchScreen(
                             isActive = track.id == viewModel.currentTrack.id,
                             coverUri = viewModel.getCoverUri(coverString = track.cover),
                             onClick = {
-                                viewModel.setQueueToDefault(); viewModel.setMediaSourceWithService(
-                                track
-                            ); onTrackSelected(track)
+                                viewModel.setMediaSourceWithService(track)
+                                onTrackSelected(track)
                             })
                     }
                 }

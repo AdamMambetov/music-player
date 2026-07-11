@@ -40,6 +40,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -185,7 +186,10 @@ fun MusicPlayerScreen(
                         Row(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .background(SurfaceCard.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
+                                .background(
+                                    SurfaceCard.copy(alpha = 0.8f),
+                                    RoundedCornerShape(8.dp)
+                                )
                                 .padding(horizontal = 6.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -362,7 +366,10 @@ fun MusicPlayerScreen(
                                 ) {
                                     Row(
                                         modifier = Modifier
-                                            .background(SurfaceCard.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
+                                            .background(
+                                                SurfaceCard.copy(alpha = 0.8f),
+                                                RoundedCornerShape(8.dp)
+                                            )
                                             .clickable { showListenTime = !showListenTime }
                                             .padding(horizontal = 8.dp, vertical = 5.dp),
                                         verticalAlignment = Alignment.CenterVertically,
@@ -437,10 +444,14 @@ fun MusicPlayerScreen(
                     transitionSpec = {
                         if (targetState) {
                             (slideInHorizontally(tween(300)) { -it } + fadeIn(tween(300)))
-                                .togetherWith(slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)))
+                                .togetherWith(slideOutHorizontally(tween(300)) { it } + fadeOut(
+                                    tween(300)
+                                ))
                         } else {
                             (slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)))
-                                .togetherWith(slideOutHorizontally(tween(300)) { -it } + fadeOut(tween(300)))
+                                .togetherWith(slideOutHorizontally(tween(300)) { -it } + fadeOut(
+                                    tween(300)
+                                ))
                         }
                     }
                 ) { isEdit ->
@@ -450,14 +461,7 @@ fun MusicPlayerScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            IconButton(onClick = { editTime = false }) {
-                                Icon(
-                                    painterResource(R.drawable.more_time),
-                                    contentDescription = "Back",
-                                    tint = Blue60,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
+                            Spacer(Modifier.size(48.dp))
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -476,7 +480,14 @@ fun MusicPlayerScreen(
                                     }
                                 }
                             }
-                            Spacer(Modifier.size(48.dp))
+                            IconButton(onClick = { editTime = false }) {
+                                Icon(
+                                    painterResource(R.drawable.close),
+                                    contentDescription = "Back",
+                                    tint = OnSurfaceSecondary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
                         }
                     } else {
                         Row(
@@ -681,11 +692,11 @@ fun AddToPlaylistDialog(
             }
         },
         confirmButton = {
-            IconButton(onClick = { onDismiss() }) {
+            TextButton(onClick = { onDismiss() }) {
                 Text(
                     "Закрыть",
                     color = Blue60,
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
                 )
             }
         })
@@ -990,8 +1001,7 @@ fun CreatorTracksScreen(
                         isActive = track.id == viewModel.currentTrack.id,
                         coverUri = viewModel.getCoverUri(coverString = track.cover),
                         onClick = {
-                            viewModel.currentQueue = tracks.toMutableList()
-                            viewModel.currentQueueIndex = tracks.indexOf(track)
+                            viewModel.setQueueFromSource(tracks, track)
                             viewModel.setMediaSourceWithService(track)
                             onTrackSelected(track)
                         }

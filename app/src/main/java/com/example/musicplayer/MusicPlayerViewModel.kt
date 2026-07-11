@@ -91,6 +91,8 @@ class MusicPlayerViewModel(
 
     var currentQueueIndex by mutableIntStateOf(-1)
 
+    private var currentQueueSourceTracks: List<TrackDocument>? = null
+
     var randomQueue = mutableListOf<TrackDocument>()
         private set
 
@@ -323,32 +325,33 @@ class MusicPlayerViewModel(
     @androidx.annotation.OptIn(UnstableApi::class)
     fun setMediaSourceWithService(track: TrackDocument) {
         if (track.id != currentTrack.id) {
-            Log.d(TAG, "Source Uri: ${track.sourceUri}")
-            currentTrack = track
-            currentListenInSec = track.listenInSec
-            isFavorite = favorites.tracklist.find { it == track } != null
-            if (track.sourceUri.isEmpty()) {
-                Log.w(TAG, "Track ${track.fileName} has no source URI, cannot play")
+            val current = allTracks.find { it.id == track.id } ?: track
+            Log.d(TAG, "Source Uri: ${current.sourceUri}")
+            currentTrack = current
+            currentListenInSec = current.listenInSec
+            isFavorite = favorites.tracklist.find { it.id == current.id } != null
+            if (current.sourceUri.isEmpty()) {
+                Log.w(TAG, "Track ${current.fileName} has no source URI, cannot play")
                 Toast.makeText(
                     context,
-                    "Track ${track.fileName} has no source URI, cannot play",
+                    "Track ${current.fileName} has no source URI, cannot play",
                     Toast.LENGTH_LONG,
                 ).show()
                 return
             }
-            currentQueueIndex = currentQueue.indexOf(currentTrack)
+            currentQueueIndex = currentQueue.indexOfFirst { it.id == current.id }
             if (isShuffle) {
-                randomQueueIndex = randomQueue.indexOf(currentTrack)
+                randomQueueIndex = randomQueue.indexOfFirst { it.id == current.id }
             }
             try {
-                val trackName = track.aliases.getOrElse(0) { "" }
-                val artistName = track.creators.joinToString(", ") {
+                val trackName = current.aliases.getOrElse(0) { "" }
+                val artistName = current.creators.joinToString(", ") {
                     it.aliases.getOrElse(0) { CreatorDocument.UNKNOWN }
                 }
-                val albumName = track.album.ifEmpty { AlbumDocument.UNKNOWN }
+                val albumName = current.album.ifEmpty { AlbumDocument.UNKNOWN }
 
                 val mediaItem = MediaItem.Builder()
-                    .setUri(track.sourceUri.toUri())
+                    .setUri(current.sourceUri.toUri())
                     .setMediaMetadata(
                         MediaMetadata.Builder()
                             .setTitle(trackName)
@@ -356,7 +359,7 @@ class MusicPlayerViewModel(
                             .setAlbumTitle(albumName)
                             .setExtras(
                                 android.os.Bundle().apply {
-                                    putString("track_id", track.id)
+                                    putString("track_id", current.id)
                                 }
                             )
                             .build()
@@ -391,6 +394,7 @@ class MusicPlayerViewModel(
                 } else {
                     currentPosition = duration
                     lastListenModifiedTimeInMillis = 0L
+                    nextTrack()
                 }
             }
 
@@ -485,6 +489,15 @@ class MusicPlayerViewModel(
 
     fun setQueueToDefault() {
         currentQueue = allTracks.toMutableList()
+        currentQueueSourceTracks = allTracks
+    }
+
+    fun setQueueFromSource(sourceTracks: List<TrackDocument>, track: TrackDocument) {
+        if (sourceTracks !== currentQueueSourceTracks) {
+            currentQueue = sourceTracks.toMutableList()
+            currentQueueSourceTracks = sourceTracks
+        }
+        currentQueueIndex = currentQueue.indexOfFirst { it.id == track.id }
     }
 
     fun onSearchQueryChange(query: String) {
