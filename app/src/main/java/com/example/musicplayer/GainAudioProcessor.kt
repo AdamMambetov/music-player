@@ -20,23 +20,11 @@ class GainAudioProcessor : AudioProcessor {
         private val EMPTY_BUFFER: ByteBuffer =
             ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
         private const val GAIN_MIN_DB = -12f
-        private const val GAIN_MAX_DB = 6f
-        private const val PEAK_HARD_LIMIT_DB = -1f
-        private const val PEAK_SOFT_LIMIT_DB = -3f
+        private const val GAIN_MAX_DB = 12f
     }
 
     fun setGainDb(rawGainDb: Float, peakLevelDb: Float = -100f) {
-        var gainDb = rawGainDb.coerceIn(GAIN_MIN_DB, GAIN_MAX_DB)
-
-        if (peakLevelDb > PEAK_SOFT_LIMIT_DB) {
-            val headroom = PEAK_HARD_LIMIT_DB - peakLevelDb
-            if (headroom < 0f) {
-                gainDb = 0f
-            } else {
-                gainDb = gainDb.coerceIn(GAIN_MIN_DB, headroom)
-            }
-        }
-
+        val gainDb = rawGainDb.coerceIn(GAIN_MIN_DB, GAIN_MAX_DB)
         gainFactor = 10f.pow(gainDb / 20f)
         active = abs(gainFactor - 1f) > 0.001f
     }

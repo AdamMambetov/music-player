@@ -11,14 +11,15 @@ Android music player with Markdown-based metadata and PostgreSQL caching.
 
 ## Data model
 
-| Entity | Description |
-|---|---|
-| `TrackDocument` | Audio file with metadata (aliases, cover, year, album, creators, related tracks) |
-| `AlbumDocument` | Collection of tracks with creators and cover |
-| `CreatorDocument` | Artist/group with aliases and listen stats |
-| `PlaylistDocument` | User-defined track list |
+| Entity             | Description                                                                      |
+|--------------------|----------------------------------------------------------------------------------|
+| `TrackDocument`    | Audio file with metadata (aliases, cover, year, album, creators, related tracks) |
+| `AlbumDocument`    | Collection of tracks with creators and cover                                     |
+| `CreatorDocument`  | Artist/group with aliases and listen stats                                       |
+| `PlaylistDocument` | User-defined track list                                                          |
 
-Relationships (creators, tracklists) are stored in junction tables (`track_creators`, `album_creators`, `album_tracks`, `playlist_tracks`) with an `ord` column to preserve order.
+Relationships (creators, tracklists) are stored in junction tables (`track_creators`,
+`album_creators`, `album_tracks`, `playlist_tracks`) with an `ord` column to preserve order.
 
 ## Project structure
 

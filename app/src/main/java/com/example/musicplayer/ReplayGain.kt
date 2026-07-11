@@ -44,7 +44,7 @@ class ReplayGain {
             var sumSquares = 0.0
             var peakSample = 0.0
 
-            val preFilter = BiquadFilter(highpass(15000.0, sampleRate, 0.7071))
+            val preFilter = BiquadFilter(highpass(150.0, sampleRate, 0.7071))
             val shelfFilter = BiquadFilter(lowShelf(200.0, sampleRate, -3.0, 0.7071))
 
             val inputBuffers = codec.inputBuffers

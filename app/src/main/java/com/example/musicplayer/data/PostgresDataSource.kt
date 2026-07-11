@@ -7,6 +7,7 @@ import kotlinx.serialization.json.Json
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.ResultSet
+import java.sql.SQLException
 
 class PostgresDataSource(
     private val host: String = "localhost",
@@ -49,7 +50,7 @@ class PostgresDataSource(
             initAge()
             createTables()
             true
-        } catch (e: java.sql.SQLException) {
+        } catch (e: SQLException) {
             Log.e(TAG, "SQL Error: ${e.message}")
             false
         } catch (e: Throwable) {
