@@ -112,6 +112,7 @@ fun MusicPlayerScreen(
         it.aliases.getOrElse(0) { CreatorDocument.UNKNOWN }
     }.ifEmpty { CreatorDocument.UNKNOWN }
     val currentListen = viewModel.currentListenInSec
+    val currentTrackId = viewModel.currentTrack.id
 
     val coverUri = rememberCoverUri(viewModel)
 
@@ -217,32 +218,65 @@ fun MusicPlayerScreen(
                             }
                         )
                     }
-                    val rank = viewModel.allTracks.sortedByDescending { it.listenInSec }
-                        .indexOfFirst { it.id == viewModel.currentTrack.id } + 1
-                    if (rank > 0) {
-                        Row(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .background(
-                                    SurfaceCard.copy(alpha = 0.8f),
-                                    RoundedCornerShape(8.dp)
+                    val rank = remember(currentTrackId) {
+                        viewModel.allTracks.sortedByDescending { it.listenInSec }
+                            .indexOfFirst { it.id == currentTrackId } + 1
+                    }
+                    val trackYear = viewModel.currentTrack.year
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        if (rank > 0) {
+                            Row(
+                                modifier = Modifier
+                                    .background(
+                                        SurfaceCard.copy(alpha = 0.8f),
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    painterResource(R.drawable.trophy),
+                                    contentDescription = "Rank",
+                                    tint = Blue60,
+                                    modifier = Modifier.size(14.dp)
                                 )
-                                .padding(horizontal = 6.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                painterResource(R.drawable.trophy),
-                                contentDescription = "Rank",
-                                tint = Blue60,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                "$rank/${viewModel.allTracks.size}",
-                                color = OnSurfacePrimary,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                                Text(
+                                    "$rank/${viewModel.allTracks.size}",
+                                    color = OnSurfacePrimary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                        if (trackYear > 0) {
+                            Row(
+                                modifier = Modifier
+                                    .background(
+                                        SurfaceCard.copy(alpha = 0.8f),
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    painterResource(R.drawable.calendar),
+                                    contentDescription = "Year",
+                                    tint = Blue60,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    "$trackYear",
+                                    color = OnSurfacePrimary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                     }
                 }
@@ -673,7 +707,8 @@ private fun CategoryItem(icon: Int, label: String, onClick: () -> Unit = {}) {
 @Composable
 private fun rememberCoverUri(viewModel: MusicPlayerViewModel): String {
     val trackId = viewModel.currentTrack.id
-    return androidx.compose.runtime.remember(trackId) { viewModel.getCoverUri(coverString = viewModel.currentTrack.cover) }
+    val cover = viewModel.currentTrack.cover
+    return androidx.compose.runtime.remember(trackId, cover) { viewModel.getCoverUri(coverString = cover) }
 }
 
 // --- Add to playlist dialog ---

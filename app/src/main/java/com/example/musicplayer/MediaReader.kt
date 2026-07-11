@@ -4,6 +4,7 @@ import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
+import java.io.File
 
 class MediaReader(val context: Context) {
     data class AudioInfo(val uri: String, val durationMs: Long)
@@ -56,40 +57,24 @@ class MediaReader(val context: Context) {
         if (uri.toString().isEmpty())
             return emptyMap()
 
-        val queryUri = MediaStore.Images.Media.getContentUri(
-            MediaStore.VOLUME_EXTERNAL,
-        )
-        val projection = arrayOf(
-            MediaStore.Images.Media._ID,
-            MediaStore.Images.Media.RELATIVE_PATH,
-            MediaStore.Images.Media.DISPLAY_NAME,
-        )
-        val selectionPath = uri.lastPathSegment!!.substringAfter(delimiter = ":") + "/"
-        val selection = "${MediaStore.Images.Media.RELATIVE_PATH} = ?"
-        val selectionArgs = arrayOf(
-            selectionPath,
-        )
+        val coversDir = getPathFromUri(uri)
+        val dir = File(coversDir)
+        if (!dir.exists() || !dir.isDirectory)
+            return emptyMap()
 
         val result = mutableMapOf<String, String>()
-        context.contentResolver.query(
-            queryUri,
-            projection,
-            selection,
-            selectionArgs,
-            null,
-        )?.use { cursor ->
-            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-            val displayNameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-            while (cursor.moveToNext()) {
-                val id = cursor.getLong(idColumn)
-                val fileName = cursor.getString(displayNameColumn)
-                val contentUri: Uri = ContentUris.withAppendedId(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    id,
-                )
-                result.put(fileName, contentUri.toString())
-            }
+        dir.listFiles()?.filter { it.isFile && it.extension.lowercase() in listOf("jpg", "jpeg", "png", "webp") }?.forEach { file ->
+            val fileUri = Uri.fromFile(file)
+            result[file.name] = fileUri.toString()
         }
         return result
+    }
+
+    private fun getPathFromUri(uri: Uri): String {
+        val storageDirPath = android.os.Environment.getExternalStorageDirectory().path
+        val path = uri.pathSegments.getOrNull(1) ?: return ""
+        return path
+            .replaceFirst("primary", storageDirPath)
+            .replaceFirst(":", "/")
     }
 }
