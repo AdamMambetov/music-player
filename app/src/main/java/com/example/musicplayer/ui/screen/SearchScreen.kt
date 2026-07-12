@@ -198,7 +198,9 @@ fun SearchScreen(
                                 viewModel.setMediaSourceWithService(track)
                                 onTrackSelected(track)
                             },
-                            onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(track, playlist, add) })
+                            onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(track, playlist, add) },
+                            onAddToQueue = { viewModel.addToQueue(track) },
+                            onPlayNext = { viewModel.playNext(track) })
                     }
                 }
                 BottomScrollControls(searchListState, viewModel, musicState.trackList)

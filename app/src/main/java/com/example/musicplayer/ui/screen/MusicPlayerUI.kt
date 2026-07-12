@@ -757,7 +757,9 @@ fun QueueTracksScreen(
                         listenInSec = latestListenInSec,
                         allPlaylists = viewModel.allPlaylists,
                         onClick = { onTrackSelected(track) },
-                        onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(track, playlist, add) })
+                        onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(track, playlist, add) },
+                        onAddToQueue = { viewModel.addToQueue(track) },
+                        onPlayNext = { viewModel.playNext(track) })
                 }
             }
             BottomScrollControls(listState, viewModel, queue)
@@ -966,7 +968,9 @@ fun AllTracksScreen(
                                 coverUri = viewModel.getCoverUri(coverString = track.cover),
                                 allPlaylists = viewModel.allPlaylists,
                                 onClick = { onTrackSelected(track) },
-                                onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(track, playlist, add) })
+                                onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(track, playlist, add) },
+                        onAddToQueue = { viewModel.addToQueue(track) },
+                        onPlayNext = { viewModel.playNext(track) })
                         }
                     }
                 } else {
@@ -980,7 +984,9 @@ fun AllTracksScreen(
                             coverUri = viewModel.getCoverUri(coverString = track.cover),
                             allPlaylists = viewModel.allPlaylists,
                             onClick = { onTrackSelected(track) },
-                            onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(track, playlist, add) })
+                            onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(track, playlist, add) },
+                        onAddToQueue = { viewModel.addToQueue(track) },
+                        onPlayNext = { viewModel.playNext(track) })
                     }
                 }
             }
@@ -1196,7 +1202,9 @@ fun RelatedTracksScreen(
                                 viewModel.setMediaSourceWithService(relatedTrack)
                                 onTrackSelected(relatedTrack)
                             },
-                            onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(relatedTrack, playlist, add) }
+                            onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(relatedTrack, playlist, add) },
+                            onAddToQueue = { viewModel.addToQueue(relatedTrack) },
+                            onPlayNext = { viewModel.playNext(relatedTrack) }
                         )
                     }
                 }
@@ -1223,7 +1231,9 @@ fun RelatedTracksScreen(
                                 viewModel.setMediaSourceWithService(coverOfTrack)
                                 onTrackSelected(coverOfTrack)
                             },
-                            onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(coverOfTrack, playlist, add) }
+                            onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(coverOfTrack, playlist, add) },
+                            onAddToQueue = { viewModel.addToQueue(coverOfTrack) },
+                            onPlayNext = { viewModel.playNext(coverOfTrack) }
                         )
                     }
                 }
@@ -1251,7 +1261,9 @@ fun RelatedTracksScreen(
                                 viewModel.setMediaSourceWithService(coverOfTrack)
                                 onTrackSelected(coverOfTrack)
                             },
-                            onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(coverOfTrack, playlist, add) }
+                            onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(coverOfTrack, playlist, add) },
+                            onAddToQueue = { viewModel.addToQueue(coverOfTrack) },
+                            onPlayNext = { viewModel.playNext(coverOfTrack) }
                         )
                     }
                 }

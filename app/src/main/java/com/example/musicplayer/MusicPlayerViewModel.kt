@@ -560,11 +560,18 @@ class MusicPlayerViewModel(
     }
 
     fun setQueueFromSource(sourceTracks: List<TrackDocument>, track: TrackDocument) {
-        if (sourceTracks !== currentQueueSourceTracks) {
+        val changed = sourceTracks !== currentQueueSourceTracks
+        if (changed) {
             currentQueue = sourceTracks.toMutableList()
             currentQueueSourceTracks = sourceTracks
         }
         currentQueueIndex = currentQueue.indexOfFirst { it.id == track.id }
+        if (isShuffle) {
+            if (changed) {
+                enableShuffle()
+            }
+            randomQueueIndex = randomQueue.indexOfFirst { it.id == track.id }
+        }
     }
 
     fun onSearchQueryChange(query: String) {
@@ -641,6 +648,22 @@ class MusicPlayerViewModel(
         val list = playlist.tracklist.toMutableList()
         if (add) list.add(track) else list.removeIf { it.id == track.id }
         savePlaylist(playlist.copy(tracklist = list.toImmutableList()))
+    }
+
+    fun addToQueue(track: TrackDocument) {
+        currentQueue.add(track)
+        if (randomQueue.isNotEmpty()) {
+            randomQueue.add(track)
+        }
+    }
+
+    fun playNext(track: TrackDocument) {
+        val normalIdx = currentQueueIndex
+        currentQueue.add(normalIdx + 1, track)
+        if (randomQueue.isNotEmpty()) {
+            val shuffleIdx = randomQueueIndex
+            randomQueue.add(shuffleIdx + 1, track)
+        }
     }
 
     fun adjustListenInSec(multiplier: Int) {

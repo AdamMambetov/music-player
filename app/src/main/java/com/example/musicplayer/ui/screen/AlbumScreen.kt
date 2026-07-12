@@ -161,7 +161,9 @@ fun AlbumTracks(
                         listenInSec = latestListenInSec,
                         allPlaylists = viewModel.allPlaylists,
                         onClick = { onTrackSelected(track) },
-                        onAddToPlaylist = { pl, add -> viewModel.toggleTrackInPlaylist(track, pl, add) }
+                        onAddToPlaylist = { pl, add -> viewModel.toggleTrackInPlaylist(track, pl, add) },
+                        onAddToQueue = { viewModel.addToQueue(track) },
+                        onPlayNext = { viewModel.playNext(track) }
                     )
                 }
             }

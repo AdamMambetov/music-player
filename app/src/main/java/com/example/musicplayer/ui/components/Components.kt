@@ -88,6 +88,8 @@ fun TrackListItem(
     allPlaylists: List<PlaylistDocument> = emptyList(),
     onClick: () -> Unit,
     onAddToPlaylist: (playlist: PlaylistDocument, add: Boolean) -> Unit = { _, _ -> },
+    onAddToQueue: () -> Unit = {},
+    onPlayNext: () -> Unit = {},
 ) {
     val name =
         track.aliases.getOrElse(0) { TrackDocument.UNKNOWN }.ifEmpty { TrackDocument.UNKNOWN }
@@ -164,6 +166,20 @@ fun TrackListItem(
                 expanded = menuExpanded,
                 onDismissRequest = { menuExpanded = false }
             ) {
+                DropdownMenuItem(
+                    text = { Text("Добавить в очередь") },
+                    onClick = {
+                        menuExpanded = false
+                        onAddToQueue()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Играть следующим") },
+                    onClick = {
+                        menuExpanded = false
+                        onPlayNext()
+                    }
+                )
                 DropdownMenuItem(
                     text = { Text("Добавить в плейлист") },
                     onClick = {
