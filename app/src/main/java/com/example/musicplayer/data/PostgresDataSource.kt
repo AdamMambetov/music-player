@@ -1,6 +1,7 @@
 package com.example.musicplayer.data
 
 import android.util.Log
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -441,7 +442,7 @@ class PostgresDataSource(
                 CreatorDocument(
                     id = rs.getString("id"),
                     created = rs.getLong("created"),
-                    aliases = jsonToList(rs.getString("aliases")),
+                    aliases = jsonToList(rs.getString("aliases")).toImmutableList(),
                     fileName = rs.getString("file_name"),
                     listenInSec = rs.getInt("listen_in_sec")
                 )
@@ -459,7 +460,7 @@ class PostgresDataSource(
             CreatorDocument(
                 id = rs.getString("id"),
                 created = rs.getLong("created"),
-                aliases = jsonToList(rs.getString("aliases")),
+                aliases = jsonToList(rs.getString("aliases")).toImmutableList(),
                 fileName = rs.getString("file_name"),
                 listenInSec = rs.getInt("listen_in_sec")
             )
@@ -558,12 +559,12 @@ class PostgresDataSource(
                 TrackDocument(
                     id = rs.getString("id"),
                     created = rs.getLong("created"),
-                    aliases = jsonToList(rs.getString("aliases")),
+                    aliases = jsonToList(rs.getString("aliases")).toImmutableList(),
                     cover = rs.getString("cover"),
                     year = rs.getLong("year"),
                     album = rs.getString("album"),
                     numberInAlbum = rs.getLong("number_in_album"),
-                    related = jsonToList(rs.getString("related")),
+                    related = jsonToList(rs.getString("related")).toImmutableList(),
                     sourceFile = rs.getString("source_file"),
                     fileName = rs.getString("file_name"),
                     listenInSec = rs.getInt("listen_in_sec"),
@@ -681,7 +682,7 @@ class PostgresDataSource(
                 AlbumDocument(
                     id = rs.getString("id"),
                     created = rs.getLong("created"),
-                    aliases = jsonToList(rs.getString("aliases")),
+                    aliases = jsonToList(rs.getString("aliases")).toImmutableList(),
                     cover = rs.getString("cover"),
                     year = rs.getLong("year"),
                     fileName = rs.getString("file_name")
@@ -820,7 +821,7 @@ class PostgresDataSource(
                 PlaylistDocument(
                     id = rs.getString("id"),
                     created = rs.getLong("created"),
-                    aliases = jsonToList(rs.getString("aliases")),
+                    aliases = jsonToList(rs.getString("aliases")).toImmutableList(),
                     fileName = rs.getString("file_name")
                 )
             )

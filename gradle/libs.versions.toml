@@ -12,6 +12,7 @@ media3Session = "1.8.0"
 documentfile = "1.1.0"
 media3Exoplayer = "1.8.0"
 lazycolumnscrollbar = "2.2.0"
+kotlinxImmutable = "0.3.7"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -34,6 +35,7 @@ androidx-documentfile = { group = "androidx.documentfile", name = "documentfile"
 androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3Exoplayer" }
 androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3Session" }
 lazycolumnscrollbar = { group = "com.github.nanihadesuka", name = "LazyColumnScrollbar", version.ref = "lazycolumnscrollbar" }
+kotlinx-immutable-collections = { group = "org.jetbrains.kotlinx", name = "kotlinx-collections-immutable", version.ref = "kotlinxImmutable" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

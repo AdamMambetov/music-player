@@ -3,23 +3,35 @@ package com.example.musicplayer.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,9 +42,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import coil3.compose.AsyncImage
 import com.example.musicplayer.R
 import com.example.musicplayer.data.CreatorDocument
+import com.example.musicplayer.data.PlaylistDocument
 import com.example.musicplayer.data.TrackDocument
 import com.example.musicplayer.ui.theme.AccentRed
 import com.example.musicplayer.ui.theme.Blue60
@@ -70,8 +85,9 @@ fun TrackListItem(
     isActive: Boolean = false,
     coverUri: String = "",
     listenInSec: Int = track.listenInSec,
+    allPlaylists: List<PlaylistDocument> = emptyList(),
     onClick: () -> Unit,
-    onMenuClick: () -> Unit = {},
+    onAddToPlaylist: (playlist: PlaylistDocument, add: Boolean) -> Unit = { _, _ -> },
 ) {
     val name =
         track.aliases.getOrElse(0) { TrackDocument.UNKNOWN }.ifEmpty { TrackDocument.UNKNOWN }
@@ -80,6 +96,9 @@ fun TrackListItem(
         .ifEmpty { listOf(CreatorDocument.UNKNOWN) }
         .joinToString(", ")
     val listenText = formatListenTime(listenInSec).ifEmpty { null }
+
+    var menuExpanded by remember { mutableStateOf(false) }
+    var showPlaylistDialog by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
@@ -133,14 +152,111 @@ fun TrackListItem(
                 )
             }
         }
-        IconButton(onClick = onMenuClick) {
-            Icon(
-                Icons.Default.MoreVert,
-                contentDescription = "Menu",
-                tint = OnSurfaceSecondary
-            )
+        Box {
+            IconButton(onClick = { menuExpanded = true }) {
+                Icon(
+                    Icons.Default.MoreVert,
+                    contentDescription = "Menu",
+                    tint = OnSurfaceSecondary
+                )
+            }
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Добавить в плейлист") },
+                    onClick = {
+                        menuExpanded = false
+                        showPlaylistDialog = true
+                    }
+                )
+            }
         }
     }
+
+    if (showPlaylistDialog && allPlaylists.isNotEmpty()) {
+        AddToPlaylistDialog(
+            track = track,
+            allPlaylists = allPlaylists,
+            onDismiss = { showPlaylistDialog = false },
+            onToggle = { playlist, add ->
+                onAddToPlaylist(playlist, add)
+            }
+        )
+    }
+}
+
+@Composable
+fun AddToPlaylistDialog(
+    track: TrackDocument,
+    allPlaylists: List<PlaylistDocument>,
+    onDismiss: () -> Unit,
+    onToggle: (playlist: PlaylistDocument, add: Boolean) -> Unit
+) {
+    val checkedStates =
+        remember { allPlaylists.associate { it.id to mutableStateOf(it.tracklist.any { t -> t.id == track.id }) } }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = SurfaceCard,
+        title = {
+            Text(
+                "Добавить в плейлист",
+                color = OnSurfacePrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
+                items(allPlaylists) { playlist ->
+                    val playlistName = playlist.aliases.getOrElse(0) { "Unknown" }
+                    val isChecked = checkedStates[playlist.id]?.value ?: false
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                checkedStates[playlist.id]?.value = !isChecked; onToggle(
+                                playlist,
+                                !isChecked
+                            )
+                            }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = isChecked,
+                            onCheckedChange = { checked ->
+                                checkedStates[playlist.id]?.value = checked; onToggle(
+                                playlist,
+                                checked
+                            )
+                            },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Blue60,
+                                uncheckedColor = OnSurfaceSecondary
+                            )
+                        )
+                        Text(
+                            playlistName,
+                            color = OnSurfacePrimary,
+                            fontSize = 15.sp,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onDismiss() }) {
+                Text(
+                    "Закрыть",
+                    color = Blue60,
+                    fontSize = 14.sp,
+                )
+            }
+        })
 }
 
 @Composable

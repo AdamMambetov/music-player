@@ -1,6 +1,8 @@
 package com.example.musicplayer.data
 
 import androidx.compose.runtime.Stable
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.serialization.Serializable
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -11,11 +13,11 @@ import java.util.UUID
 @Stable
 data class AlbumDocument(
     val created: Long = 0L,
-    val aliases: List<String> = emptyList(),
+    val aliases: ImmutableList<String> = persistentListOf(),
     val cover: String = "",
     val year: Long = 0L,
-    val creators: List<CreatorDocument> = emptyList(),
-    val tracklist: List<TrackDocument> = emptyList(),
+    val creators: ImmutableList<CreatorDocument> = persistentListOf(),
+    val tracklist: ImmutableList<TrackDocument> = persistentListOf(),
     val fileName: String = "",
     val id: String = deterministicId("album", fileName),
 ) {

@@ -2,6 +2,7 @@ package com.example.musicplayer.ui.screen
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedContent
+import kotlinx.collections.immutable.toImmutableList
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -80,6 +81,7 @@ import com.example.musicplayer.data.AlbumDocument
 import com.example.musicplayer.data.CreatorDocument
 import com.example.musicplayer.data.PlaylistDocument
 import com.example.musicplayer.data.TrackDocument
+import com.example.musicplayer.ui.components.AddToPlaylistDialog
 import com.example.musicplayer.ui.components.AlbumCover
 import com.example.musicplayer.ui.components.TrackListItem
 import com.example.musicplayer.ui.components.formatListenTime
@@ -219,7 +221,7 @@ fun MusicPlayerScreen(
                             }
                         )
                     }
-                    val rank = remember(currentTrackId) {
+                    val rank = remember(currentTrackId, viewModel.currentListenInSec) {
                         viewModel.allTracks.sortedByDescending { it.listenInSec }
                             .indexOfFirst { it.id == currentTrackId } + 1
                     }
@@ -261,7 +263,7 @@ fun MusicPlayerScreen(
                                         SurfaceCard.copy(alpha = 0.8f),
                                         RoundedCornerShape(8.dp)
                                     )
-                                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
@@ -269,12 +271,12 @@ fun MusicPlayerScreen(
                                     painterResource(R.drawable.calendar),
                                     contentDescription = "Year",
                                     tint = Blue60,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(12.dp)
                                 )
                                 Text(
                                     "$trackYear",
                                     color = OnSurfacePrimary,
-                                    fontSize = 11.sp,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
@@ -618,7 +620,7 @@ fun MusicPlayerScreen(
                         onToggle = { playlist, add ->
                             val list = playlist.tracklist.toMutableList()
                             if (add) list.add(viewModel.currentTrack) else list.removeIf { it.id == viewModel.currentTrack.id }
-                            viewModel.savePlaylist(playlist.copy(tracklist = list))
+                            viewModel.savePlaylist(playlist.copy(tracklist = list.toImmutableList()))
                         })
                 }
             }
@@ -705,79 +707,6 @@ private fun rememberCoverUri(viewModel: MusicPlayerViewModel): String {
     return androidx.compose.runtime.remember(trackId, cover) { viewModel.getCoverUri(coverString = cover) }
 }
 
-// --- Add to playlist dialog ---
-@Composable
-fun AddToPlaylistDialog(
-    track: TrackDocument,
-    allPlaylists: List<PlaylistDocument>,
-    onDismiss: () -> Unit,
-    onToggle: (playlist: PlaylistDocument, add: Boolean) -> Unit
-) {
-    val checkedStates =
-        remember { allPlaylists.associate { it.id to mutableStateOf(it.tracklist.any { t -> t.id == track.id }) } }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = SurfaceCard,
-        title = {
-            Text(
-                "Добавить в плейлист",
-                color = OnSurfacePrimary,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
-                items(allPlaylists) { playlist ->
-                    val playlistName = playlist.aliases.getOrElse(0) { "Unknown" }
-                    val isChecked = checkedStates[playlist.id]?.value ?: false
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                checkedStates[playlist.id]?.value = !isChecked; onToggle(
-                                playlist,
-                                !isChecked
-                            )
-                            }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = isChecked,
-                            onCheckedChange = { checked ->
-                                checkedStates[playlist.id]?.value = checked; onToggle(
-                                playlist,
-                                checked
-                            )
-                            },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = Blue60,
-                                uncheckedColor = OnSurfaceSecondary
-                            )
-                        )
-                        Text(
-                            playlistName,
-                            color = OnSurfacePrimary,
-                            fontSize = 15.sp,
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onDismiss() }) {
-                Text(
-                    "Закрыть",
-                    color = Blue60,
-                    fontSize = 14.sp,
-                )
-            }
-        })
-}
-
 // --- Queue screen ---
 @Composable
 fun QueueTracksScreen(
@@ -787,7 +716,7 @@ fun QueueTracksScreen(
     onTrackSelected: (TrackDocument) -> Unit = {}
 ) {
     val listState = rememberLazyListState()
-    val queue = viewModel.currentQueue
+    val queue = if (viewModel.isShuffle) viewModel.randomQueue else viewModel.currentQueue
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -820,11 +749,15 @@ fun QueueTracksScreen(
                 items(
                     items = queue,
                     key = { it.id }) { track ->
+                    val latestListenInSec = viewModel.allTracks.find { it.id == track.id }?.listenInSec ?: track.listenInSec
                     TrackListItem(
                         track = track,
                         isActive = track.id == viewModel.currentTrack.id,
                         coverUri = viewModel.getCoverUri(coverString = track.cover),
-                        onClick = { onTrackSelected(track) })
+                        listenInSec = latestListenInSec,
+                        allPlaylists = viewModel.allPlaylists,
+                        onClick = { onTrackSelected(track) },
+                        onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(track, playlist, add) })
                 }
             }
             BottomScrollControls(listState, viewModel, queue)
@@ -1031,7 +964,9 @@ fun AllTracksScreen(
                                 track = track,
                                 isActive = track.id == viewModel.currentTrack.id,
                                 coverUri = viewModel.getCoverUri(coverString = track.cover),
-                                onClick = { onTrackSelected(track) })
+                                allPlaylists = viewModel.allPlaylists,
+                                onClick = { onTrackSelected(track) },
+                                onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(track, playlist, add) })
                         }
                     }
                 } else {
@@ -1043,7 +978,9 @@ fun AllTracksScreen(
                             track = track,
                             isActive = track.id == viewModel.currentTrack.id,
                             coverUri = viewModel.getCoverUri(coverString = track.cover),
-                            onClick = { onTrackSelected(track) })
+                            allPlaylists = viewModel.allPlaylists,
+                            onClick = { onTrackSelected(track) },
+                            onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(track, playlist, add) })
                     }
                 }
             }
@@ -1170,11 +1107,13 @@ fun CreatorTracksScreen(
                         track = track,
                         isActive = track.id == viewModel.currentTrack.id,
                         coverUri = viewModel.getCoverUri(coverString = track.cover),
+                        allPlaylists = viewModel.allPlaylists,
                         onClick = {
                             viewModel.setQueueFromSource(tracks, track)
                             viewModel.setMediaSourceWithService(track)
                             onTrackSelected(track)
-                        }
+                        },
+                        onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(track, playlist, add) }
                     )
                 }
             }
@@ -1251,11 +1190,13 @@ fun RelatedTracksScreen(
                             track = relatedTrack,
                             isActive = relatedTrack.id == viewModel.currentTrack.id,
                             coverUri = viewModel.getCoverUri(coverString = relatedTrack.cover),
+                            allPlaylists = viewModel.allPlaylists,
                             onClick = {
                                 viewModel.setQueueFromSource(relatedTracks, relatedTrack)
                                 viewModel.setMediaSourceWithService(relatedTrack)
                                 onTrackSelected(relatedTrack)
-                            }
+                            },
+                            onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(relatedTrack, playlist, add) }
                         )
                     }
                 }
@@ -1277,10 +1218,12 @@ fun RelatedTracksScreen(
                             track = coverOfTrack,
                             isActive = coverOfTrack.id == viewModel.currentTrack.id,
                             coverUri = viewModel.getCoverUri(coverString = coverOfTrack.cover),
+                            allPlaylists = viewModel.allPlaylists,
                             onClick = {
                                 viewModel.setMediaSourceWithService(coverOfTrack)
                                 onTrackSelected(coverOfTrack)
-                            }
+                            },
+                            onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(coverOfTrack, playlist, add) }
                         )
                     }
                 }
@@ -1302,11 +1245,13 @@ fun RelatedTracksScreen(
                             track = coverOfTrack,
                             isActive = coverOfTrack.id == viewModel.currentTrack.id,
                             coverUri = viewModel.getCoverUri(coverString = coverOfTrack.cover),
+                            allPlaylists = viewModel.allPlaylists,
                             onClick = {
                                 viewModel.setQueueFromSource(covers, coverOfTrack)
                                 viewModel.setMediaSourceWithService(coverOfTrack)
                                 onTrackSelected(coverOfTrack)
-                            }
+                            },
+                            onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(coverOfTrack, playlist, add) }
                         )
                     }
                 }

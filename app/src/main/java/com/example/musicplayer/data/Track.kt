@@ -1,6 +1,8 @@
 package com.example.musicplayer.data
 
 import androidx.compose.runtime.Stable
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.serialization.Serializable
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -14,13 +16,13 @@ fun deterministicId(type: String, fileName: String): String =
 @Stable
 data class TrackDocument(
     val created: Long = 0L,
-    val aliases: List<String> = emptyList(),
+    val aliases: ImmutableList<String> = persistentListOf(),
     val cover: String = "",
     val year: Long = 0L,
     val album: String = "",
-    val creators: List<CreatorDocument> = emptyList(),
+    val creators: ImmutableList<CreatorDocument> = persistentListOf(),
     val numberInAlbum: Long = 0L,
-    val related: List<String> = emptyList(),
+    val related: ImmutableList<String> = persistentListOf(),
     val sourceFile: String = "",
     val fileName: String = "",
     val id: String = deterministicId("track", fileName),
@@ -64,8 +66,8 @@ data class TrackDocument(
 }
 
 data class TrackListState(
-    val trackList: List<TrackDocument> = emptyList(),
-    val albumList: List<AlbumDocument> = emptyList(),
-    val creatorList: List<CreatorDocument> = emptyList(),
+    val trackList: ImmutableList<TrackDocument> = persistentListOf(),
+    val albumList: ImmutableList<AlbumDocument> = persistentListOf(),
+    val creatorList: ImmutableList<CreatorDocument> = persistentListOf(),
     val searchQuery: String = "",
 )

@@ -192,10 +192,13 @@ fun SearchScreen(
                             isActive = track.id == viewModel.currentTrack.id,
                             coverUri = viewModel.getCoverUri(coverString = track.cover),
                             listenInSec = latestListenInSec,
+                            allPlaylists = viewModel.allPlaylists,
                             onClick = {
+                                viewModel.setQueueFromSource(musicState.trackList.toList(), track)
                                 viewModel.setMediaSourceWithService(track)
                                 onTrackSelected(track)
-                            })
+                            },
+                            onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(track, playlist, add) })
                     }
                 }
                 BottomScrollControls(searchListState, viewModel, musicState.trackList)

@@ -5,6 +5,7 @@ import com.example.musicplayer.data.AlbumDocument
 import com.example.musicplayer.data.CreatorDocument
 import com.example.musicplayer.data.PlaylistDocument
 import com.example.musicplayer.data.TrackDocument
+import kotlinx.collections.immutable.toImmutableList
 
 class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
     companion object {
@@ -113,18 +114,18 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
 
         return TrackDocument(
             created = getDateFromString(source = yamlData[CREATED_KEY].orEmpty()).timeInMillis,
-            aliases = aliases,
+            aliases = aliases.toImmutableList(),
             cover = unLink(yamlData[COVER_KEY].orEmpty()),
             creators = stringArrayToList(yamlData[CREATORS_KEY].orEmpty())
                 .mapNotNull { creatorName ->
                     allCreators.find { it.fileName == unLink(creatorName) }
-                },
+                }.toImmutableList(),
             year = yamlData[YEAR_KEY]?.toLongOrNull() ?: 0L,
             sourceFile = unLink(yamlData[SOURCE_FILE_KEY].orEmpty()),
             listenInSec = yamlData[LISTEN_IN_SEC_KEY]?.toIntOrNull() ?: 0,
             album = unLink(yamlData[ALBUM_KEY].orEmpty()),
             numberInAlbum = yamlData[NUMBER_IN_ALBUM_KEY]?.toLongOrNull() ?: 0L,
-            related = stringArrayToList(yamlData[RELATED_KEY].orEmpty()).map { unLink(it) },
+            related = stringArrayToList(yamlData[RELATED_KEY].orEmpty()).map { unLink(it) }.toImmutableList(),
             fileName = filename.removeSuffix(".md"),
             coverOf = unLink(yamlData[COVER_OF_KEY].orEmpty())
         )
@@ -139,7 +140,7 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
 
         return CreatorDocument(
             created = getDateFromString(source = yamlData[CREATED_KEY].orEmpty()).timeInMillis,
-            aliases = aliases,
+            aliases = aliases.toImmutableList(),
             fileName = filename.removeSuffix(".md"),
             listenInSec = yamlData[LISTEN_IN_SEC_KEY]?.toIntOrNull() ?: 0,
         )
@@ -166,14 +167,14 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
 
         return AlbumDocument(
             created = getDateFromString(source = yamlData[CREATED_KEY].orEmpty()).timeInMillis,
-            aliases = aliases,
+            aliases = aliases.toImmutableList(),
             cover = unLink(yamlData[COVER_KEY].orEmpty()),
             year = yamlData[YEAR_KEY]?.toLongOrNull() ?: 0L,
             creators = stringArrayToList(yamlData[CREATORS_KEY].orEmpty())
                 .mapNotNull { creatorName ->
                     allCreators.find { it.fileName == unLink(creatorName) }
-                },
-            tracklist = tracklist,
+                }.toImmutableList(),
+            tracklist = tracklist.toImmutableList(),
             fileName = filename.removeSuffix(".md"),
         )
     }
@@ -197,8 +198,8 @@ class MarkdownReader(val pathHelper: PathHelper) : MarkdownReaderBase() {
 
         return PlaylistDocument(
             created = getDateFromString(source = yamlData[CREATED_KEY].orEmpty()).timeInMillis,
-            aliases = aliases,
-            tracklist = tracklist,
+            aliases = aliases.toImmutableList(),
+            tracklist = tracklist.toImmutableList(),
             fileName = filename.removeSuffix(".md"),
         )
     }

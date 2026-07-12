@@ -39,6 +39,7 @@ import com.example.musicplayer.ui.components.TrackListItem
 import com.example.musicplayer.ui.theme.OnSurfacePrimary
 import com.example.musicplayer.ui.theme.OnSurfaceSecondary
 import com.example.musicplayer.ui.theme.SurfaceDark
+import kotlinx.collections.immutable.persistentListOf
 
 @Composable
 fun AllPlaylists(
@@ -98,7 +99,15 @@ fun PlaylistTracks(
             LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) {
                 items(items = playlist.tracklist, key = { it.id }) { track ->
                     val latestListenInSec = viewModel.allTracks.find { it.id == track.id }?.listenInSec ?: track.listenInSec
-                    TrackListItem(track = track, isActive = track.id == viewModel.currentTrack.id, coverUri = viewModel.getCoverUri(coverString = track.cover), listenInSec = latestListenInSec, onClick = { onTrackSelected(track) })
+                    TrackListItem(
+                        track = track,
+                        isActive = track.id == viewModel.currentTrack.id,
+                        coverUri = viewModel.getCoverUri(coverString = track.cover),
+                        listenInSec = latestListenInSec,
+                        allPlaylists = viewModel.allPlaylists,
+                        onClick = { onTrackSelected(track) },
+                        onAddToPlaylist = { pl, add -> viewModel.toggleTrackInPlaylist(track, pl, add) }
+                    )
                 }
             }
             BottomScrollControls(listState, viewModel, playlist.tracklist)
@@ -112,5 +121,5 @@ fun PlaylistTracks(
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun PlaylistTracksPreview() {
-    PlaylistTracks(viewModel = MusicPlayerViewModel(LocalContext.current), playlist = PlaylistDocument.createEmpty().copy(tracklist = listOf(TrackDocument.createEmpty())))
+    PlaylistTracks(viewModel = MusicPlayerViewModel(LocalContext.current), playlist = PlaylistDocument.createEmpty().copy(tracklist = persistentListOf(TrackDocument.createEmpty())))
 }

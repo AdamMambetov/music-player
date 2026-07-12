@@ -8,6 +8,7 @@ import com.example.musicplayer.MediaReader
 import com.example.musicplayer.ReplayGain
 import com.example.musicplayer.mdreader.MarkdownReader
 import com.example.musicplayer.mdreader.PathHelper
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -64,7 +65,7 @@ class MusicRepository(
                     ?.mapNotNull { creatorMap[it] }
                     ?: emptyList()
                 val withUri = if (audioInfo != null) track.copy(sourceUri = audioInfo.uri, durationSec = audioInfo.durationMs / 1000) else track
-                withUri.copy(creators = trackCreators)
+                withUri.copy(creators = trackCreators.toImmutableList())
             }
             return@withContext resolved
         }
@@ -98,8 +99,8 @@ class MusicRepository(
                 val resolvedTracks = albumTrackIds.mapNotNull { trackMap[it] }
                 Log.d(TAG, "Album '${album.aliases.getOrElse(0) { album.fileName }}': ${albumTrackIds.size} track IDs from PG, ${resolvedTracks.size} resolved")
                 album.copy(
-                    creators = albumCreatorIds.mapNotNull { creatorMap[it] },
-                    tracklist = resolvedTracks
+                    creators = albumCreatorIds.mapNotNull { creatorMap[it] }.toImmutableList(),
+                    tracklist = resolvedTracks.toImmutableList()
                 )
             }
         }
@@ -125,7 +126,7 @@ class MusicRepository(
                 val playlistTrackIds = postgres.getPlaylistTracks(playlist.id)
                 val resolvedTracks = playlistTrackIds.mapNotNull { trackMap[it] }
                 Log.d(TAG, "Playlist '${playlist.aliases.getOrElse(0) { playlist.fileName }}': ${playlistTrackIds.size} track IDs from PG, ${resolvedTracks.size} resolved")
-                playlist.copy(tracklist = resolvedTracks)
+                playlist.copy(tracklist = resolvedTracks.toImmutableList())
             }
         }
 
@@ -192,7 +193,7 @@ class MusicRepository(
                 val trackCreators = postgres.getTrackCreators(track.id)
                     .mapNotNull { creatorMap[it] }
                 val withUri = if (audioInfo != null) track.copy(sourceUri = audioInfo.uri, durationSec = audioInfo.durationMs / 1000) else track
-                withUri.copy(creators = trackCreators)
+                withUri.copy(creators = trackCreators.toImmutableList())
             }
         }
     }
@@ -221,8 +222,8 @@ class MusicRepository(
                 val albumCreatorIds = postgres.getAlbumCreators(album.id)
                 val albumTrackIds = postgres.getAlbumTracks(album.id)
                 album.copy(
-                    creators = albumCreatorIds.mapNotNull { creatorMap[it] },
-                    tracklist = albumTrackIds.mapNotNull { trackMap[it] }
+                    creators = albumCreatorIds.mapNotNull { creatorMap[it] }.toImmutableList(),
+                    tracklist = albumTrackIds.mapNotNull { trackMap[it] }.toImmutableList()
                 )
             }
         }

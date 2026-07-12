@@ -159,7 +159,10 @@ fun AlbumTracks(
                         isActive = track.id == viewModel.currentTrack.id,
                         coverUri = viewModel.getCoverUri(coverString = track.cover),
                         listenInSec = latestListenInSec,
-                        onClick = { onTrackSelected(track) })
+                        allPlaylists = viewModel.allPlaylists,
+                        onClick = { onTrackSelected(track) },
+                        onAddToPlaylist = { pl, add -> viewModel.toggleTrackInPlaylist(track, pl, add) }
+                    )
                 }
             }
             BottomScrollControls(listState, viewModel, currentAlbum.tracklist)

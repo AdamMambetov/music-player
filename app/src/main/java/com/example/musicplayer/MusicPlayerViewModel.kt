@@ -15,6 +15,8 @@ import androidx.compose.runtime.setValue
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -430,13 +432,13 @@ class MusicPlayerViewModel(
                         if (tIdx >= 0) {
                             playlist.tracklist = playlist.tracklist.toMutableList().also {
                                 it[tIdx] = updated
-                            }
+                            }.toImmutableList()
                         }
                     }
                     musicState = musicState.copy(
                         trackList = musicState.trackList.map {
                             if (it.id == trackId) updated else it
-                        }
+                        }.toImmutableList()
                     )
                     allAlbums.forEachIndexed { aIdx, album ->
                         val tIdx = album.tracklist.indexOfFirst { it.id == trackId }
@@ -444,7 +446,7 @@ class MusicPlayerViewModel(
                             allAlbums[aIdx] = album.copy(
                                 tracklist = album.tracklist.toMutableList().also {
                                     it[tIdx] = updated
-                                }
+                                }.toImmutableList()
                             )
                         }
                     }
@@ -452,21 +454,21 @@ class MusicPlayerViewModel(
                         currentAlbum = currentAlbum.copy(
                             tracklist = currentAlbum.tracklist.map {
                                 if (it.id == trackId) updated else it
-                            }
+                            }.toImmutableList()
                         )
                     }
                     if (currentPlaylist.tracklist.any { it.id == trackId }) {
                         currentPlaylist = currentPlaylist.copy(
                             tracklist = currentPlaylist.tracklist.map {
                                 if (it.id == trackId) updated else it
-                            }
+                            }.toImmutableList()
                         )
                     }
                     if (favorites.tracklist.any { it.id == trackId }) {
                         favorites = favorites.copy(
                             tracklist = favorites.tracklist.map {
                                 if (it.id == trackId) updated else it
-                            }
+                            }.toImmutableList()
                         )
                     }
                     viewModelScope.launch {
@@ -519,9 +521,23 @@ class MusicPlayerViewModel(
 
     fun enableShuffle() {
         isShuffle = true
-        randomQueue = currentQueue.toMutableList()
-        randomQueue.shuffle(random)
-        randomQueueIndex = randomQueue.indexOf(currentQueue[currentQueueIndex])
+        val current = currentQueue[currentQueueIndex]
+        val others = currentQueue.filter { it.id != current.id }
+
+        val neverListened = others.filter { it.listenInSec == 0 }
+        val negative = others.filter { it.listenInSec < 0 }
+        val listened = others.filter { it.listenInSec > 0 }
+            .map { it to it.listenInSec * random.nextDouble() }
+            .sortedByDescending { it.second }
+            .map { it.first }
+
+        randomQueue = mutableListOf<TrackDocument>().apply {
+            add(current)
+            addAll(neverListened.shuffled(random))
+            addAll(listened)
+            addAll(negative.shuffled(random))
+        }
+        randomQueueIndex = 0
     }
 
     fun disableShuffle() {
@@ -558,12 +574,12 @@ class MusicPlayerViewModel(
         searchJob = viewModelScope.launch {
             if (query.isBlank()) {
                 val topTracks = allTracks.sortedByDescending { it.listenInSec }.take(10)
-                musicState = musicState.copy(trackList = topTracks, albumList = emptyList(), creatorList = emptyList())
+                musicState = musicState.copy(trackList = topTracks.toImmutableList(), albumList = persistentListOf(), creatorList = persistentListOf())
             } else {
                 val tracks = repository.searchTracks(query)
                 val albums = repository.searchAlbums(query)
                 val creators = repository.searchCreators(query)
-                musicState = musicState.copy(trackList = tracks, albumList = albums, creatorList = creators)
+                musicState = musicState.copy(trackList = tracks.toImmutableList(), albumList = albums.toImmutableList(), creatorList = creators.toImmutableList())
             }
         }
     }
@@ -589,7 +605,7 @@ class MusicPlayerViewModel(
 
         val list = favorites.tracklist.toMutableList()
         list.add(track)
-        favorites.tracklist = list
+        favorites.tracklist = list.toImmutableList()
         savePlaylist(favorites)
     }
 
@@ -600,7 +616,7 @@ class MusicPlayerViewModel(
 
         val list = favorites.tracklist.toMutableList()
         list.remove(track)
-        favorites.tracklist = list
+        favorites.tracklist = list.toImmutableList()
         savePlaylist(favorites)
     }
 
@@ -619,6 +635,12 @@ class MusicPlayerViewModel(
         viewModelScope.launch {
             repository.savePlaylist(allPlaylists[index])
         }
+    }
+
+    fun toggleTrackInPlaylist(track: TrackDocument, playlist: PlaylistDocument, add: Boolean) {
+        val list = playlist.tracklist.toMutableList()
+        if (add) list.add(track) else list.removeIf { it.id == track.id }
+        savePlaylist(playlist.copy(tracklist = list.toImmutableList()))
     }
 
     fun adjustListenInSec(multiplier: Int) {
