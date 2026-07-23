@@ -962,10 +962,12 @@ fun AllTracksScreen(
                             lastYear = year
                         }
                         item(key = track.id) {
+                            val latestListenInSec = viewModel.allTracks.find { it.id == track.id }?.listenInSec ?: track.listenInSec
                             TrackListItem(
                                 track = track,
                                 isActive = track.id == viewModel.currentTrack.id,
                                 coverUri = viewModel.getCoverUri(coverString = track.cover),
+                                listenInSec = latestListenInSec,
                                 allPlaylists = viewModel.allPlaylists,
                                 onClick = { onTrackSelected(track) },
                                 onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(track, playlist, add) },
@@ -978,10 +980,12 @@ fun AllTracksScreen(
                         items = sortedTracks,
                         key = { it.id }
                     ) { track ->
+                        val latestListenInSec = viewModel.allTracks.find { it.id == track.id }?.listenInSec ?: track.listenInSec
                         TrackListItem(
                             track = track,
                             isActive = track.id == viewModel.currentTrack.id,
                             coverUri = viewModel.getCoverUri(coverString = track.cover),
+                            listenInSec = latestListenInSec,
                             allPlaylists = viewModel.allPlaylists,
                             onClick = { onTrackSelected(track) },
                             onAddToPlaylist = { playlist, add -> viewModel.toggleTrackInPlaylist(track, playlist, add) },

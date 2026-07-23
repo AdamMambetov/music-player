@@ -79,14 +79,18 @@ abstract class MarkdownReaderBase {
 
         // Phase 2: replace existing values
         var matches = frontMatterRegex.findAll(text).toList()
-        for (match in matches) {
+        var i = 0
+        while (i < matches.size) {
+            val match = matches[i]
             if (match.range.first > endIndex)
                 break
 
             val line = match.groups[0]!!.value
             val key = match.groups[1]!!.value
-            if (key !in yamlMap)
+            if (key !in yamlMap) {
+                i++
                 continue
+            }
 
             val value = yamlMap[key]!!
             if (value.startsWith(yamlListIndent)) {
@@ -97,14 +101,16 @@ abstract class MarkdownReaderBase {
                     endIndex = min(nextStart, endIndex),
                     replacement = "$key:\n$value\n",
                 )
-                endIndex = frontMatterDashesRegex
-                    .findAll(text)
-                    .iterator()
-                    .next()
-                    .next()?.range?.start ?: 0
             } else {
                 text = text.replaceFirst(line, "$key: $value")
             }
+            endIndex = frontMatterDashesRegex
+                .findAll(text)
+                .iterator()
+                .next()
+                .next()?.range?.start ?: 0
+            matches = frontMatterRegex.findAll(text).toList()
+            i++
         }
         file.writeText(text = text)
     }

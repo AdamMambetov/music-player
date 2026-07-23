@@ -163,6 +163,22 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(24.dp))
         Button(
             modifier = Modifier.fillMaxWidth(),
+            onClick = { viewModel.fixDefaultCoverValues() },
+            colors = ButtonDefaults.buttonColors(containerColor = Blue60)
+        ) {
+            Text(text = "Очистить cover=\"_No Album Art.jpg\"")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { viewModel.extractAndAssignCovers() },
+            colors = ButtonDefaults.buttonColors(containerColor = Blue60)
+        ) {
+            Text(text = "Извлечь обложки из аудиофайлов")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(
+            modifier = Modifier.fillMaxWidth(),
             onClick = { viewModel.scanAll(true) },
             enabled = !viewModel.isScan,
             colors = ButtonDefaults.buttonColors(containerColor = Blue60)

@@ -3,7 +3,9 @@ package com.example.musicplayer
 import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Context
+import android.net.Uri
 import android.os.CountDownTimer
+import android.os.SystemClock
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.getValue
@@ -15,9 +17,6 @@ import androidx.compose.runtime.setValue
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.launch
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -33,8 +32,14 @@ import com.example.musicplayer.data.TrackDocument
 import com.example.musicplayer.data.TrackListState
 import com.example.musicplayer.mdreader.MarkdownReader
 import com.example.musicplayer.mdreader.PathHelper
+import com.example.musicplayer.mdreader.SavedQueueState
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import kotlin.random.Random
 
 class MusicPlayerViewModel(
@@ -127,6 +132,7 @@ class MusicPlayerViewModel(
     private var playerTimer: CountDownTimer? = null
 
     private var lastListenModifiedTimeInMillis: Long = Long.MAX_VALUE
+    private var lastListenIncrementTime: Long = Long.MAX_VALUE
 
     private var searchJob: Job? = null
     private var scanJob: Job? = null
@@ -134,6 +140,18 @@ class MusicPlayerViewModel(
     private var _mediaController: MediaController? = null
 
     val pathHelper = PathHelper(context = context)
+
+    private fun persistQueueState() {
+        pathHelper.saveQueueState(
+            trackIds = currentQueue.map { it.id },
+            index = currentQueueIndex,
+            shuffleEnabled = isShuffle,
+            shuffleTrackIds = randomQueue.map { it.id },
+            shuffleIndex = randomQueueIndex,
+            currentTrackId = currentTrack.id,
+            playbackPositionMs = currentPosition,
+        )
+    }
     private val markdownReader = MarkdownReader(pathHelper = pathHelper)
     private val mediaReader = MediaReader(context = context)
     private val postgres = PostgresDataSource()
@@ -200,6 +218,7 @@ class MusicPlayerViewModel(
                     if (playbackState == Player.STATE_READY) {
                         duration = _mediaController?.duration ?: 0L
                         lastListenModifiedTimeInMillis = duration
+                        lastListenIncrementTime = SystemClock.elapsedRealtime()
                     }
                     if (playbackState == Player.STATE_ENDED) {
                         if (isRepeat) {
@@ -208,6 +227,7 @@ class MusicPlayerViewModel(
                         } else {
                             nextTrack()
                             lastListenModifiedTimeInMillis = Long.MAX_VALUE
+                            lastListenIncrementTime = Long.MAX_VALUE
                             playerTimer?.cancel()
                         }
                     }
@@ -264,7 +284,10 @@ class MusicPlayerViewModel(
 
             favorites = result.favorites ?: favorites
 
-            Log.d(TAG, "Rescan end: ${result.tracks.size} tracks, ${result.creators.size} creators, ${result.albums.size} albums, ${result.playlists.size} playlists")
+            Log.d(
+                TAG,
+                "Rescan end: ${result.tracks.size} tracks, ${result.creators.size} creators, ${result.albums.size} albums, ${result.playlists.size} playlists"
+            )
             scanCovers()
             isScan = false
         }
@@ -296,13 +319,74 @@ class MusicPlayerViewModel(
             favorites = allPlaylists.find {
                 it.aliases.getOrElse(0) { "" } == "Favorites"
             } ?: favorites
-            Log.d(TAG, "Loaded playlists: ${playlists.size}, favorites: ${favorites.tracklist.size}")
+            Log.d(
+                TAG,
+                "Loaded playlists: ${playlists.size}, favorites: ${favorites.tracklist.size}"
+            )
 
             scanCovers()
             isScan = false
 
+            restoreLastSession()
+
             if (pathHelper.isReplayGainEnabled()) {
                 analyzeAllTracksInBackground(tracks)
+            }
+        }
+    }
+
+    private fun restoreLastSession() {
+        val saved = pathHelper.loadQueueState() ?: return
+        if (saved.trackIds.isEmpty() || saved.currentTrackId.isEmpty()) return
+
+        val resolved = saved.trackIds.mapNotNull { id -> allTracks.find { it.id == id } }
+        if (resolved.isEmpty()) return
+
+        currentQueue = resolved.toMutableList()
+        currentQueueSourceTracks = null
+
+        val track = resolved.find { it.id == saved.currentTrackId } ?: resolved.first()
+        currentQueueIndex = resolved.indexOfFirst { it.id == track.id }
+        currentTrack = track
+        currentListenInSec = track.listenInSec
+        isFavorite = favorites.tracklist.any { it.id == track.id }
+        currentPosition = saved.playbackPositionMs
+
+        isShuffle = saved.shuffleEnabled
+        if (isShuffle) {
+            val resolvedShuffle = saved.shuffleTrackIds.mapNotNull { id ->
+                allTracks.find { it.id == id }
+            }.ifEmpty { resolved }
+            randomQueue = resolvedShuffle.toMutableList()
+            randomQueueIndex = saved.shuffleIndex.coerceIn(0, randomQueue.lastIndex)
+        } else {
+            randomQueue.clear()
+            randomQueueIndex = -1
+        }
+
+        if (track.sourceUri.isNotEmpty()) {
+            val mediaItem = MediaItem.Builder()
+                .setUri(track.sourceUri.toUri())
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(track.aliases.getOrElse(0) { "" })
+                        .setArtist(track.creators.joinToString(", ") {
+                            it.aliases.getOrElse(0) { CreatorDocument.UNKNOWN }
+                        })
+                        .setAlbumTitle(track.album.ifEmpty { AlbumDocument.UNKNOWN })
+                        .setExtras(
+                            android.os.Bundle().apply {
+                                putString("track_id", track.id)
+                            }
+                        )
+                        .build()
+                )
+                .build()
+            viewModelScope.launch(Dispatchers.Main) {
+                _mediaController?.let { controller ->
+                    controller.setMediaItem(mediaItem)
+                    controller.prepare()
+                }
             }
         }
     }
@@ -319,8 +403,8 @@ class MusicPlayerViewModel(
 
     fun scanCovers() {
         val notePath = pathHelper.getNotesFolderPath()
-        val uri = "$notePath%2F${PathHelper.COVERS_FOLDER_NAME_IN_NOTES}".toUri()
-        coverUris = mediaReader.scanCovers(uri = uri).toMutableMap()
+        val coversUri = "$notePath%2F${PathHelper.COVERS_FOLDER_NAME_IN_NOTES}".toUri()
+        coverUris = mediaReader.scanCovers(uri = coversUri).toMutableMap()
         coverUris[""] = getCoverUri(coverString = "_No Album Art.jpg")
 
         MusicPlayerService.coverUriMap.clear()
@@ -333,6 +417,76 @@ class MusicPlayerViewModel(
             }
         }
         Log.d(TAG, "Cover map populated: ${MusicPlayerService.coverUriMap.size} entries")
+    }
+
+    fun extractAndAssignCovers() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val notePath = pathHelper.getNotesFolderPath()
+            val coversUri = "$notePath%2F${PathHelper.COVERS_FOLDER_NAME_IN_NOTES}".toUri()
+            val tracksPath = pathHelper.getTracksFolderPath()
+            if (tracksPath.isEmpty()) return@launch
+
+            val audioDir = File(pathHelper.getPathFromUri(tracksPath.toUri()))
+            val coversDir = File(pathHelper.getPathFromUri(coversUri))
+            val extracted = mediaReader.extractCoversFromAudioFiles(audioDir, coversDir)
+
+            extracted.values.distinct().forEach { coverName ->
+                val coverFile = File(coversDir, coverName)
+                if (coverFile.exists()) {
+                    coverUris[coverName] = Uri.fromFile(coverFile).toString()
+                }
+            }
+
+            val audioToCover = extracted.mapKeys { it.key.substringBeforeLast('.') }
+            allTracks.forEachIndexed { i, track ->
+                if (track.cover.isEmpty()) {
+                    val audioBaseName = track.sourceFile.substringBeforeLast('.')
+                    val coverName = audioToCover[audioBaseName]
+                    val coverValue =
+                        coverName?.ifEmpty { "_No Album Art.jpg" } ?: "_No Album Art.jpg"
+                    val updated = track.copy(cover = coverValue)
+                    allTracks[i] = updated
+                    repository.saveTrack(updated)
+                    Log.d(TAG, "$i. ${track.sourceFile} update cover to $coverName")
+                }
+            }
+
+            MusicPlayerService.coverUriMap.clear()
+            allTracks.forEach { track ->
+                if (track.sourceUri.isNotEmpty()) {
+                    val coverPath = coverUris[track.cover]
+                    if (!coverPath.isNullOrEmpty()) {
+                        MusicPlayerService.coverUriMap[track.sourceUri] = coverPath
+                    }
+                }
+            }
+
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    context,
+                    "Обложки извлечены (${extracted.size} файлов)",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    fun fixDefaultCoverValues() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val defaults = listOf("_No Album Art.jpg", "[[_No Album Art.jpg]]")
+            var count = 0
+            allTracks.forEachIndexed { idx, track ->
+                if (track.cover in defaults) {
+                    val updated = track.copy(cover = "")
+                    allTracks[idx] = updated
+                    repository.saveTrack(updated)
+                    count++
+                }
+            }
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Очищено $count треков", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     fun getCoverUri(coverString: String): String {
@@ -394,6 +548,7 @@ class MusicPlayerViewModel(
                 Toast.makeText(context, "SourceFile не валидный!", Toast.LENGTH_SHORT).show()
                 nextTrack()
             }
+            persistQueueState()
         }
     }
 
@@ -401,6 +556,7 @@ class MusicPlayerViewModel(
         if (duration == 0L)
             return
         playerTimer?.cancel()
+        lastListenIncrementTime = SystemClock.elapsedRealtime()
         playerTimer = object : CountDownTimer(
             duration - currentPosition, 100L
         ) {
@@ -410,16 +566,20 @@ class MusicPlayerViewModel(
                     play()
                 } else {
                     currentPosition = duration
-                    lastListenModifiedTimeInMillis = 0L
+                    lastListenIncrementTime = Long.MAX_VALUE
                     nextTrack()
                 }
             }
 
             override fun onTick(millisUntilFinished: Long) {
                 currentPosition = duration - millisUntilFinished
-                if (lastListenModifiedTimeInMillis - millisUntilFinished >= 1000L) {
-                    lastListenModifiedTimeInMillis = millisUntilFinished
-                    val updated = currentTrack.copy(listenInSec = currentTrack.listenInSec + 1)
+                val now = SystemClock.elapsedRealtime()
+                val elapsed = now - lastListenIncrementTime
+                if (elapsed >= 1000L) {
+                    val increments = (elapsed / 1000).toInt()
+                    lastListenIncrementTime += increments * 1000L
+                    val updated =
+                        currentTrack.copy(listenInSec = currentTrack.listenInSec + increments)
                     currentTrack = updated
                     currentListenInSec = updated.listenInSec
                     val trackId = updated.id
@@ -496,6 +656,7 @@ class MusicPlayerViewModel(
         _mediaController?.seekTo(position)
         currentPosition = position
         lastListenModifiedTimeInMillis = duration - currentPosition
+        lastListenIncrementTime = SystemClock.elapsedRealtime()
         if (isPlaying)
             startTimer()
     }
@@ -538,12 +699,14 @@ class MusicPlayerViewModel(
             addAll(negative.shuffled(random))
         }
         randomQueueIndex = 0
+        persistQueueState()
     }
 
     fun disableShuffle() {
         isShuffle = false
         randomQueue.clear()
         randomQueueIndex = -1
+        persistQueueState()
     }
 
     fun enableRepeat() {
@@ -552,11 +715,6 @@ class MusicPlayerViewModel(
 
     fun disableRepeat() {
         isRepeat = false
-    }
-
-    fun setQueueToDefault() {
-        currentQueue = sortedAllTracks.toMutableList()
-        currentQueueSourceTracks = sortedAllTracks
     }
 
     fun setQueueFromSource(sourceTracks: List<TrackDocument>, track: TrackDocument) {
@@ -572,6 +730,7 @@ class MusicPlayerViewModel(
             }
             randomQueueIndex = randomQueue.indexOfFirst { it.id == track.id }
         }
+        persistQueueState()
     }
 
     fun onSearchQueryChange(query: String) {
@@ -581,12 +740,20 @@ class MusicPlayerViewModel(
         searchJob = viewModelScope.launch {
             if (query.isBlank()) {
                 val topTracks = allTracks.sortedByDescending { it.listenInSec }.take(10)
-                musicState = musicState.copy(trackList = topTracks.toImmutableList(), albumList = persistentListOf(), creatorList = persistentListOf())
+                musicState = musicState.copy(
+                    trackList = topTracks.toImmutableList(),
+                    albumList = persistentListOf(),
+                    creatorList = persistentListOf()
+                )
             } else {
                 val tracks = repository.searchTracks(query)
                 val albums = repository.searchAlbums(query)
                 val creators = repository.searchCreators(query)
-                musicState = musicState.copy(trackList = tracks.toImmutableList(), albumList = albums.toImmutableList(), creatorList = creators.toImmutableList())
+                musicState = musicState.copy(
+                    trackList = tracks.toImmutableList(),
+                    albumList = albums.toImmutableList(),
+                    creatorList = creators.toImmutableList()
+                )
             }
         }
     }
@@ -655,6 +822,7 @@ class MusicPlayerViewModel(
         if (randomQueue.isNotEmpty()) {
             randomQueue.add(track)
         }
+        persistQueueState()
     }
 
     fun playNext(track: TrackDocument) {
@@ -664,6 +832,7 @@ class MusicPlayerViewModel(
             val shuffleIdx = randomQueueIndex
             randomQueue.add(shuffleIdx + 1, track)
         }
+        persistQueueState()
     }
 
     fun adjustListenInSec(multiplier: Int) {
